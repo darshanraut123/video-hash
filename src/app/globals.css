@@ -18,12 +18,9 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
+  background: linear-gradient(to bottom,
       transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+      rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
 }
 
 @layer utilities {
@@ -38,7 +35,7 @@ body {
 
   .file-upload {
     background-color: #ffffff;
-    /* width: 600px; */
+    height: 100vh;
     margin: 0 auto;
     padding: 20px;
     display: flex;
@@ -55,8 +52,7 @@ body {
     border-bottom: 4px solid #15824b;
     transition: all 0.2s ease;
     outline: none;
-    text-transform: uppercase;
-    font-weight: 700;
+    font-weight: 300;
     margin-top: 15px;
   }
 
@@ -70,6 +66,12 @@ body {
   .file-upload-btn:active {
     border: 0;
     transition: all 0.2s ease;
+  }
+
+  .add-info-txt {
+    color: black;
+    font-size: 12px;
+    font-weight: 100;
   }
 
   .file-upload-content {
@@ -87,12 +89,15 @@ body {
     opacity: 0;
     cursor: pointer;
   }
+
   .heading {
     background-color: #5353a8;
     color: white;
     text-align: center;
     padding: 10px;
     border-radius: 10px;
+    text-transform: uppercase;
+    font-weight: 400;
   }
 
   .scroll {
@@ -101,21 +106,22 @@ body {
     scrollbar-width: thin;
     scrollbar-color: #888 #fff;
   }
+
   .upload-section {
     width: 50%;
     padding: 15px;
     border: 1px solid black;
   }
+
   .image-upload-wrap {
     margin-top: 20px;
-    border: 4px dashed #35bcb1;
+    border: 1px dashed #35bcb1;
     position: relative;
   }
 
   .image-dropping,
   .image-upload-wrap:hover {
-    background-color: #1fb264;
-    border: 4px dashed #ffffff;
+    border: 2px solid red;
   }
 
   .image-title-wrap {
@@ -167,12 +173,14 @@ body {
     border: 0;
     transition: all 0.2s ease;
   }
+
   .submit-button-section {
     width: 100%;
     display: flex;
     justify-content: center;
     margin-top: 15px;
   }
+
   .submit-button {
     background-color: #0070f3;
     color: white;
@@ -222,16 +230,19 @@ body {
     border: 1px solid #000;
     margin: 10px;
   }
+
   .remove-button {
     display: flex;
     justify-content: flex-end;
     color: #b02818;
     margin: 5px;
   }
+
   .input-keyPair {
     padding: 10px;
     border: 1px solid #000;
     margin: 3px;
+    color: #575454;
   }
 
   .add-button-section {
@@ -244,5 +255,9 @@ body {
     background-color: #42abce;
     padding: 10px;
     border-radius: 10px;
+  }
+
+  .add-button:hover {
+    background-color: #053a4b;
   }
 }

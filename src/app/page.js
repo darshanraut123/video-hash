@@ -6,8 +6,8 @@ import CircularProgress from "@mui/material/CircularProgress";
 
 export default function Home() {
   const [files, setFiles] = useState([null, null]); // State to hold two video files
-  const [previews, setPreviews] = useState([null, null]); // State to hold video previews
-  const [keyValuePairs, setKeyValuePairs] = useState([{}]); // State to hold key-value pairs
+  const [previews, setPreviews] = useState([]); // State to hold video previews
+  const [keyValuePairs, setKeyValuePairs] = useState([]); // State to hold key-value pairs
   const [loadingSubmit, setLoadingSubmit] = useState(false); // State to hold
   const [loadingVerify, setLoadingVerify] = useState(false); // State to hold
   function readURL(input, index) {
@@ -37,25 +37,22 @@ export default function Home() {
   }
 
   function handleSubmit(event) {
-    setLoadingSubmit(true)
     event.preventDefault();
-
-    console.log(files, "file");
+    setLoadingSubmit(true);
     if (files[0]) {
       const formData = new FormData();
-      formData.append("file", files[0]);
-
-      console.log("file", keyValuePairs);
-      for (let [key, value] of formData.entries()) {
-        console.log(`${key}:`, value);
-      }
+      formData.append("videoFile", files[0]);
+      formData.append("videoMetaDataJSON",keyValuePairs);
+      console.log(formData);
     } else {
       alert("Please upload  video files before submitting.");
     }
+    setLoadingSubmit(false);
   }
+
   function verifySubmit(event) {
     event.preventDefault();
-    setLoadingVerify(true)
+    setLoadingVerify(true);
     console.log(files, "file");
     if (files[1]) {
       const formData = new FormData();
@@ -86,16 +83,9 @@ export default function Home() {
     <div className="file-upload">
       {[0, 1].map((index) => (
         <div key={index} className="upload-section">
-          <div
-          className="heading"
-           
-          >
-            {index == 0 ? "Upload video" : "Verify Video"}
-          </div>
+          <div className="heading">{index == 0 ? "Upload" : "Verify"}</div>
 
-          <div
-            className="scroll"
-          >
+          <div className="scroll">
             <button
               className="file-upload-btn"
               type="button"
@@ -103,10 +93,11 @@ export default function Home() {
                 document.querySelectorAll(".file-upload-input")[index].click()
               }
             >
-              Add video {index + 1}
+              Choose from media library
             </button>
             <div className="image-upload-wrap">
               <input
+                hidden
                 className="file-upload-input"
                 type="file"
                 onChange={(e) => readURL(e.target, index)}
@@ -131,12 +122,14 @@ export default function Home() {
               )}
             </div>
             {/* Key-Value Pair Section */}
+            {index == 0 && (
+              <span className="add-info-txt">
+                Add more information about your video
+              </span>
+            )}
             {index == 0 &&
               keyValuePairs.map((pair, idx) => (
-                <div
-                  key={idx}
-                  className="keyValuePairs"
-                >
+                <div key={idx} className="keyValuePairs">
                   <button
                     type="button"
                     onClick={() => removeKeyValuePair(idx)}
@@ -145,9 +138,9 @@ export default function Home() {
                     Remove
                   </button>
                   <input
-                   className="input-keyPair"
+                    className="input-keyPair"
                     type="text"
-                    placeholder="Key"
+                    placeholder="Attribute Name"
                     value={pair.key || ""}
                     onChange={(e) =>
                       handleKeyValueChange(idx, "key", e.target.value)
@@ -155,9 +148,9 @@ export default function Home() {
                     // style={{ marginRight: "10px" }}
                   />
                   <input
-                   className="input-keyPair"
+                    className="input-keyPair"
                     type="text"
-                    placeholder="Value"
+                    placeholder="Attribute Value"
                     value={pair.value || ""}
                     onChange={(e) =>
                       handleKeyValueChange(idx, "value", e.target.value)
@@ -166,9 +159,7 @@ export default function Home() {
                 </div>
               ))}
             {index == 0 ? (
-              <div
-               className="add-button-section"
-              >
+              <div className="add-button-section">
                 <button
                   type="button"
                   onClick={addKeyValuePair}
@@ -180,25 +171,31 @@ export default function Home() {
             ) : null}{" "}
             {index == 0 ? (
               <div className="submit-button-section">
-                <button
-                  className="submit-button"
-                  type="submit"
-                  onClick={ handleSubmit }
-                >
-                Upload
-                </button>
-                {loadingSubmit ? <CircularProgress /> : null}
+                {loadingSubmit ? (
+                  <CircularProgress />
+                ) : (
+                  <button
+                    className="submit-button"
+                    type="submit"
+                    onClick={handleSubmit}
+                  >
+                    Upload
+                  </button>
+                )}
               </div>
             ) : (
               <div className="submit-button-section">
-                <button
-                  className="submit-button"
-                  type="submit"
-                  onClick={ verifySubmit}
-                >
-                Verify
-                </button>
-                {loadingVerify ? <CircularProgress /> : null}
+                {loadingVerify ? (
+                  <CircularProgress />
+                ) : (
+                  <button
+                    className="submit-button"
+                    type="submit"
+                    onClick={verifySubmit}
+                  >
+                    Verify
+                  </button>
+                )}
               </div>
             )}
           </div>
