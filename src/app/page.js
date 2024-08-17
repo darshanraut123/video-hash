@@ -1,8 +1,7 @@
 "use client"; // Mark this as a Client Component
 
-import { Spinner } from "react-bootstrap";
-import React, { useState } from "react";
 import CircularProgress from "@mui/material/CircularProgress";
+import { useState } from "react";
 
 export default function Home() {
   const [files, setFiles] = useState([null, null]); // State to hold two video files
@@ -36,38 +35,86 @@ export default function Home() {
     document.querySelectorAll(".file-upload-input")[index].value = "";
   }
 
-  function handleSubmit(event) {
-    setLoadingSubmit(true)
-    event.preventDefault();
-
-    console.log(files, "file");
-    if (files[0]) {
-      const formData = new FormData();
-      formData.append("file", files[0]);
-
-      console.log("file", keyValuePairs);
-      for (let [key, value] of formData.entries()) {
-        console.log(`${key}:`, value);
-      }
+  async function uploadVideo() {
+    if(files[0]){
+        const formData = new FormData();
+        formData.append('video', files[0]);
+        formData.append('metaData', JSON.stringify(keyValuePairs));
+      
+        try {
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+      
+          if (!response.ok) {
+            throw new Error(`Upload failed: ${response.statusText}`);
+          }
+      
+          const data = await response.json();
+          console.log('Upload successful:', data);
+          alert('Video fingerprint generated successfully')
+          return data;
+        } catch (error) {
+          console.error('Error during upload:', error);
+          return null;
+        } finally {
+          setLoadingSubmit(false)
+        }
     } else {
+      setLoadingSubmit(false)
       alert("Please upload  video files before submitting.");
     }
   }
+  
+
+  async function verifyVideo(file) {
+    if(files[1]){
+    const formData = new FormData();
+    formData.append('video', files[1]);
+  
+    try {
+      const response = await fetch('/api/verify', {
+        method: 'POST',
+        body: formData,
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Verification failed: ${response.statusText}`);
+      }
+  
+      const data = await response.json();
+      if (response.status === 200) {
+        console.log('Fingerprint found:', data);
+      } else if (response.status === 404) {
+        console.log('Fingerprint not found.');
+      }
+      alert(data.message + " " + JSON.stringify(data.data));
+      return data;
+    } catch (error) {
+      console.error('Error during verification:', error);
+      return null;
+    } finally {
+      setLoadingVerify(false)
+    }
+    } else {
+      setLoadingVerify(false)
+      alert("Please upload  video files before submitting.");
+    }
+  }
+  
+
+  function handleSubmit(event) {
+    setLoadingSubmit(true)
+    event.preventDefault();
+    uploadVideo();
+  }
+
+
   function verifySubmit(event) {
     event.preventDefault();
     setLoadingVerify(true)
-    console.log(files, "file");
-    if (files[1]) {
-      const formData = new FormData();
-      formData.append("file", files[1]);
-
-      console.log(formData, "file");
-      for (let [key, value] of formData.entries()) {
-        console.log(`${key}:`, value);
-      }
-    } else {
-      alert("Please upload two video files before submitting.");
-    }
+    verifyVideo();
   }
   function addKeyValuePair() {
     setKeyValuePairs([...keyValuePairs, {}]); // Add an empty object to the array
