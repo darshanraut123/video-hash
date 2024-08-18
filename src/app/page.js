@@ -1,8 +1,14 @@
 "use client"; // Mark this as a Client Component
 
-import { Spinner } from "react-bootstrap";
+import Table from "react-bootstrap/Table";
 import React, { useState } from "react";
 import CircularProgress from "@mui/material/CircularProgress";
+import toast, { Toaster } from "react-hot-toast";
+import { Button } from "react-bootstrap";
+
+// export const metadata = {
+//   title: "New Title",
+// };
 
 export default function Home() {
   const [files, setFiles] = useState([null, null]); // State to hold two video files
@@ -10,6 +16,11 @@ export default function Home() {
   const [keyValuePairs, setKeyValuePairs] = useState([]); // State to hold key-value pairs
   const [loadingSubmit, setLoadingSubmit] = useState(false); // State to hold
   const [loadingVerify, setLoadingVerify] = useState(false); // State to hold
+  const [foundRecords, setFoundRecords] = useState([]);
+
+  const uploadVideoUrl = "http://localhost:8080/upload-video";
+  const verifyVideoUrl = "http://localhost:8080/verify-similarity";
+
   function readURL(input, index) {
     if (input.files && input.files[0]) {
       const newFiles = [...files];
@@ -39,15 +50,40 @@ export default function Home() {
   function handleSubmit(event) {
     event.preventDefault();
     setLoadingSubmit(true);
-    if (files[0]) {
-      const formData = new FormData();
-      formData.append("videoFile", files[0]);
-      formData.append("videoMetaDataJSON",keyValuePairs);
-      console.log(formData);
-    } else {
-      alert("Please upload  video files before submitting.");
+    console.log(keyValuePairs);
+    if (!files[0]) {
+      toast("Please upload a video file");
+      setLoadingSubmit(false);
+      return;
     }
-    setLoadingSubmit(false);
+    if (!keyValuePairs.length) {
+      toast("Please add metadata before submitting");
+      setLoadingSubmit(false);
+      return;
+    }
+    if (!keyValuePairs[0].key || !keyValuePairs[0].values) {
+      toast("Please complete the metadata");
+      setLoadingSubmit(false);
+      return;
+    }
+    const formData = new FormData();
+    formData.append("videoFile", files[0]);
+    formData.append("videoMetaDataJSON", keyValuePairs);
+    console.log(formData);
+
+    fetch(uploadVideoUrl, {
+      method: "POST",
+      body: formData,
+    })
+      .then((response) => response.json())
+      .then((response) => {
+        console.log(response);
+        toast("Video records uploaded");
+      })
+      .catch((e) => {
+        console.log(e);
+        toast("Unexpected error occured");
+      });
   }
 
   function verifySubmit(event) {
@@ -56,16 +92,28 @@ export default function Home() {
     console.log(files, "file");
     if (files[1]) {
       const formData = new FormData();
-      formData.append("file", files[1]);
-
+      formData.append("videoFile", files[1]);
       console.log(formData, "file");
-      for (let [key, value] of formData.entries()) {
-        console.log(`${key}:`, value);
-      }
+      fetch(verifyVideoUrl, {
+        method: "POST",
+        body: formData,
+      })
+        .then((response) => response.json())
+        .then((response) => {
+          console.log(response);
+          setFoundRecords(response.videoinfo.videoMetaDataList);
+          toast(response.message);
+        })
+        .catch((e) => {
+          console.log(e);
+          toast("Unexpected error occured");
+        });
     } else {
-      alert("Please upload two video files before submitting.");
+      toast("Please upload a video file.");
     }
+    setLoadingVerify(false);
   }
+
   function addKeyValuePair() {
     setKeyValuePairs([...keyValuePairs, {}]); // Add an empty object to the array
   }
@@ -79,8 +127,37 @@ export default function Home() {
     const newPairs = keyValuePairs.filter((_, idx) => idx !== index);
     setKeyValuePairs(newPairs);
   }
+
+  function renderRecords() {
+    return foundRecords.length > 0 ? (
+      <>
+        <Button onClick={() => setFoundRecords([])} variant="outline-primary">
+          Reset
+        </Button>
+        <table className="table table-hover mt-2">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Attribute name</th>
+              <th scope="col">Attribute value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {foundRecords.map((metaData, index) => (
+              <tr key={index}>
+                <th scope="row">{index + 1}</th>
+                <td>{metaData.key}</td>
+                <td>{metaData.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    ) : null;
+  }
   return (
     <div className="file-upload">
+      <Toaster />
       {[0, 1].map((index) => (
         <div key={index} className="upload-section">
           <div className="heading">{index == 0 ? "Upload" : "Verify"}</div>
@@ -198,6 +275,7 @@ export default function Home() {
                 )}
               </div>
             )}
+            {index == 1 && renderRecords()}
           </div>
         </div>
       ))}
