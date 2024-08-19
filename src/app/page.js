@@ -1,14 +1,22 @@
 "use client"; // Mark this as a Client Component
 
+import Table from "react-bootstrap/Table";
+import React, { useState } from "react";
 import CircularProgress from "@mui/material/CircularProgress";
-import { useState } from "react";
+import toast, { Toaster } from "react-hot-toast";
+import { Button } from "react-bootstrap";
 
 export default function Home() {
   const [files, setFiles] = useState([null, null]); // State to hold two video files
-  const [previews, setPreviews] = useState([null, null]); // State to hold video previews
-  const [keyValuePairs, setKeyValuePairs] = useState([{}]); // State to hold key-value pairs
+  const [previews, setPreviews] = useState([]); // State to hold video previews
+  const [keyValuePairs, setKeyValuePairs] = useState([]); // State to hold key-value pairs
   const [loadingSubmit, setLoadingSubmit] = useState(false); // State to hold
   const [loadingVerify, setLoadingVerify] = useState(false); // State to hold
+  const [foundRecords, setFoundRecords] = useState([]);
+
+  const uploadVideoUrl = "http://localhost:8080/upload-video";
+  const verifyVideoUrl = "http://localhost:8080/verify-similarity";
+
   function readURL(input, index) {
     if (input.files && input.files[0]) {
       const newFiles = [...files];
@@ -36,86 +44,112 @@ export default function Home() {
   }
 
   async function uploadVideo() {
-    if(files[0]){
-        const formData = new FormData();
-        formData.append('video', files[0]);
-        formData.append('metaData', JSON.stringify(keyValuePairs));
-      
-        try {
-          const response = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData,
-          });
-      
-          if (!response.ok) {
-            throw new Error(`Upload failed: ${response.statusText}`);
-          }
-      
-          const data = await response.json();
-          console.log('Upload successful:', data);
-          alert('Video fingerprint generated successfully')
-          return data;
-        } catch (error) {
-          console.error('Error during upload:', error);
-          return null;
-        } finally {
-          setLoadingSubmit(false)
+    if (files[0]) {
+      const formData = new FormData();
+      formData.append("video", files[0]);
+      formData.append("metaData", JSON.stringify(keyValuePairs));
+
+      try {
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Upload failed: ${response.statusText}`);
         }
+
+        const data = await response.json();
+        console.log("Upload successful:", data);
+        alert("Video fingerprint generated successfully");
+        return data;
+      } catch (error) {
+        console.error("Error during upload:", error);
+        return null;
+      } finally {
+        setLoadingSubmit(false);
+      }
     } else {
-      setLoadingSubmit(false)
+      setLoadingSubmit(false);
       alert("Please upload  video files before submitting.");
     }
+    if (!keyValuePairs.length) {
+      toast("Please add metadata before submitting");
+      setLoadingSubmit(false);
+      return;
+    }
+    if (!keyValuePairs[0].key || !keyValuePairs[0].values) {
+      toast("Please complete the metadata");
+      setLoadingSubmit(false);
+      return;
+    }
+    const formData = new FormData();
+    formData.append("videoFile", files[0]);
+    formData.append("videoMetaDataJSON", keyValuePairs);
+    console.log(formData);
+
+    fetch(uploadVideoUrl, {
+      method: "POST",
+      body: formData,
+    })
+      .then((response) => response.json())
+      .then((response) => {
+        console.log(response);
+        toast("Video records uploaded");
+      })
+      .catch((e) => {
+        console.log(e);
+        toast("Unexpected error occured");
+      });
   }
-  
 
   async function verifyVideo(file) {
-    if(files[1]){
-    const formData = new FormData();
-    formData.append('video', files[1]);
-  
-    try {
-      const response = await fetch('/api/verify', {
-        method: 'POST',
-        body: formData,
-      });
-  
-      if (!response.ok) {
-        throw new Error(`Verification failed: ${response.statusText}`);
+    if (files[1]) {
+      const formData = new FormData();
+      formData.append("video", files[1]);
+
+      try {
+        const response = await fetch("/api/verify", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Verification failed: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        if (response.status === 200) {
+          console.log("Fingerprint found:", data);
+        } else if (response.status === 404) {
+          console.log("Fingerprint not found.");
+        }
+        alert(data.message + " " + JSON.stringify(data.data));
+        return data;
+      } catch (error) {
+        console.error("Error during verification:", error);
+        return null;
+      } finally {
+        setLoadingVerify(false);
       }
-  
-      const data = await response.json();
-      if (response.status === 200) {
-        console.log('Fingerprint found:', data);
-      } else if (response.status === 404) {
-        console.log('Fingerprint not found.');
-      }
-      alert(data.message + " " + JSON.stringify(data.data));
-      return data;
-    } catch (error) {
-      console.error('Error during verification:', error);
-      return null;
-    } finally {
-      setLoadingVerify(false)
-    }
     } else {
-      setLoadingVerify(false)
+      setLoadingVerify(false);
       alert("Please upload  video files before submitting.");
     }
   }
-  
 
   function handleSubmit(event) {
-    setLoadingSubmit(true)
+    setLoadingSubmit(true);
     event.preventDefault();
     uploadVideo();
   }
 
-
   function verifySubmit(event) {
     event.preventDefault();
-    setLoadingVerify(true)
+    setLoadingVerify(true);
     verifyVideo();
   }
+
   function addKeyValuePair() {
     setKeyValuePairs([...keyValuePairs, {}]); // Add an empty object to the array
   }
@@ -129,20 +163,42 @@ export default function Home() {
     const newPairs = keyValuePairs.filter((_, idx) => idx !== index);
     setKeyValuePairs(newPairs);
   }
+
+  function renderRecords() {
+    return foundRecords.length > 0 ? (
+      <>
+        <Button onClick={() => setFoundRecords([])} variant="outline-primary">
+          Reset
+        </Button>
+        <table className="table table-hover mt-2">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Attribute name</th>
+              <th scope="col">Attribute value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {foundRecords.map((metaData, index) => (
+              <tr key={index}>
+                <th scope="row">{index + 1}</th>
+                <td>{metaData.key}</td>
+                <td>{metaData.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    ) : null;
+  }
   return (
     <div className="file-upload">
+      <Toaster />
       {[0, 1].map((index) => (
         <div key={index} className="upload-section">
-          <div
-          className="heading"
-           
-          >
-            {index == 0 ? "Upload video" : "Verify Video"}
-          </div>
+          <div className="heading">{index == 0 ? "Upload" : "Verify"}</div>
 
-          <div
-            className="scroll"
-          >
+          <div className="scroll">
             <button
               className="file-upload-btn"
               type="button"
@@ -150,10 +206,11 @@ export default function Home() {
                 document.querySelectorAll(".file-upload-input")[index].click()
               }
             >
-              Add video {index + 1}
+              Choose from media library
             </button>
             <div className="image-upload-wrap">
               <input
+                hidden
                 className="file-upload-input"
                 type="file"
                 onChange={(e) => readURL(e.target, index)}
@@ -178,12 +235,14 @@ export default function Home() {
               )}
             </div>
             {/* Key-Value Pair Section */}
+            {index == 0 && (
+              <span className="add-info-txt">
+                Add more information about your video
+              </span>
+            )}
             {index == 0 &&
               keyValuePairs.map((pair, idx) => (
-                <div
-                  key={idx}
-                  className="keyValuePairs"
-                >
+                <div key={idx} className="keyValuePairs">
                   <button
                     type="button"
                     onClick={() => removeKeyValuePair(idx)}
@@ -192,9 +251,9 @@ export default function Home() {
                     Remove
                   </button>
                   <input
-                   className="input-keyPair"
+                    className="input-keyPair"
                     type="text"
-                    placeholder="Key"
+                    placeholder="Attribute Name"
                     value={pair.key || ""}
                     onChange={(e) =>
                       handleKeyValueChange(idx, "key", e.target.value)
@@ -202,9 +261,9 @@ export default function Home() {
                     // style={{ marginRight: "10px" }}
                   />
                   <input
-                   className="input-keyPair"
+                    className="input-keyPair"
                     type="text"
-                    placeholder="Value"
+                    placeholder="Attribute Value"
                     value={pair.value || ""}
                     onChange={(e) =>
                       handleKeyValueChange(idx, "value", e.target.value)
@@ -213,9 +272,7 @@ export default function Home() {
                 </div>
               ))}
             {index == 0 ? (
-              <div
-               className="add-button-section"
-              >
+              <div className="add-button-section">
                 <button
                   type="button"
                   onClick={addKeyValuePair}
@@ -227,27 +284,34 @@ export default function Home() {
             ) : null}{" "}
             {index == 0 ? (
               <div className="submit-button-section">
-                <button
-                  className="submit-button"
-                  type="submit"
-                  onClick={ handleSubmit }
-                >
-                Upload
-                </button>
-                {loadingSubmit ? <CircularProgress /> : null}
+                {loadingSubmit ? (
+                  <CircularProgress />
+                ) : (
+                  <button
+                    className="submit-button"
+                    type="submit"
+                    onClick={handleSubmit}
+                  >
+                    Upload
+                  </button>
+                )}
               </div>
             ) : (
               <div className="submit-button-section">
-                <button
-                  className="submit-button"
-                  type="submit"
-                  onClick={ verifySubmit}
-                >
-                Verify
-                </button>
-                {loadingVerify ? <CircularProgress /> : null}
+                {loadingVerify ? (
+                  <CircularProgress />
+                ) : (
+                  <button
+                    className="submit-button"
+                    type="submit"
+                    onClick={verifySubmit}
+                  >
+                    Verify
+                  </button>
+                )}
               </div>
             )}
+            {index == 1 && renderRecords()}
           </div>
         </div>
       ))}
