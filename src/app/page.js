@@ -103,7 +103,7 @@ export default function Home() {
                 url: downloadURL,
                 metaData: [
                   ...keyValuePairs,
-                  { Key: "FileName", value: file.name },
+                  { key: "FileName", value: file.name },
                 ],
               }),
             });
@@ -129,6 +129,9 @@ export default function Home() {
   }
 
   async function verifyVideo() {
+    setFoundRecords([]);
+    setExactFoundRecord(null);
+
     const file = files[1];
     if (!file) {
       toast("Please upload a video file");
@@ -254,28 +257,28 @@ export default function Home() {
           </>
         )}
 
+        {foundRecords.length > 0 && (
+          <h6 className="mt-2">Similar Records Found : </h6>
+        )}
         {foundRecords.map((record, index) => (
-          <>
-            <h6 className="mt-2">Similar Records Found : </h6>
-            <table key={index} className="table table-hover">
-              <thead>
-                <tr>
-                  <th scope="col">#</th>
-                  <th scope="col">Attribute name</th>
-                  <th scope="col">Attribute value</th>
+          <table key={index} className="table table-hover mb-5">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Attribute name</th>
+                <th scope="col">Attribute value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {record.metaData.map((keyVal, index) => (
+                <tr key={index}>
+                  <th scope="row">{index + 1}</th>
+                  <td>{keyVal.key}</td>
+                  <td>{keyVal.value}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {record.metaData.map((keyVal, index) => (
-                  <tr key={index}>
-                    <th scope="row">{index + 1}</th>
-                    <td>{keyVal.key}</td>
-                    <td>{keyVal.value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
+              ))}
+            </tbody>
+          </table>
         ))}
       </>
     ) : null;
@@ -393,7 +396,12 @@ export default function Home() {
             ) : (
               <div className="submit-button-section">
                 {loadingVerify ? (
-                  <CircularProgress />
+                  <div className="loader-container">
+                    {progressPercentage == 0 ? null : (
+                      <div>{progressPercentage} %</div>
+                    )}
+                    <CircularProgress />
+                  </div>
                 ) : (
                   <button
                     className="submit-button"
