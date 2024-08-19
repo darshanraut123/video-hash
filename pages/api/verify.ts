@@ -73,7 +73,7 @@ const handler = async (req, res) => {
           fingerprint: exactMatch.target_hash,
         });
         res.status(200).json({
-          message: "Matching ecords found.",
+          message: "Matching records found.",
           exactMatchRecord,
           similarRecords,
         });

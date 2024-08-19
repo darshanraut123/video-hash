@@ -235,7 +235,7 @@ export default function Home() {
 
         {exactFoundRecord && (
           <>
-            <h6 className="mt-2">Exact Record Found : </h6>
+            <h6 className="mt-5 mb-2">Exact Record Found : </h6>
             <table className="table table-hover">
               <thead>
                 <tr>
@@ -258,7 +258,7 @@ export default function Home() {
         )}
 
         {foundRecords.length > 0 && (
-          <h6 className="mt-2">Similar Records Found : </h6>
+          <h6 className="mt-5 mb-2">Similar Records Found : </h6>
         )}
         {foundRecords.map((record, index) => (
           <table key={index} className="table table-hover mb-5">
