@@ -6,10 +6,6 @@ import CircularProgress from "@mui/material/CircularProgress";
 import toast, { Toaster } from "react-hot-toast";
 import { Button } from "react-bootstrap";
 
-// export const metadata = {
-//   title: "New Title",
-// };
-
 export default function Home() {
   const [files, setFiles] = useState([null, null]); // State to hold two video files
   const [previews, setPreviews] = useState([]); // State to hold video previews
@@ -47,14 +43,35 @@ export default function Home() {
     document.querySelectorAll(".file-upload-input")[index].value = "";
   }
 
-  function handleSubmit(event) {
-    event.preventDefault();
-    setLoadingSubmit(true);
-    console.log(keyValuePairs);
-    if (!files[0]) {
-      toast("Please upload a video file");
+  async function uploadVideo() {
+    if (files[0]) {
+      const formData = new FormData();
+      formData.append("video", files[0]);
+      formData.append("metaData", JSON.stringify(keyValuePairs));
+
+      try {
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Upload failed: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("Upload successful:", data);
+        alert("Video fingerprint generated successfully");
+        return data;
+      } catch (error) {
+        console.error("Error during upload:", error);
+        return null;
+      } finally {
+        setLoadingSubmit(false);
+      }
+    } else {
       setLoadingSubmit(false);
-      return;
+      alert("Please upload  video files before submitting.");
     }
     if (!keyValuePairs.length) {
       toast("Please add metadata before submitting");
@@ -86,32 +103,51 @@ export default function Home() {
       });
   }
 
+  async function verifyVideo(file) {
+    if (files[1]) {
+      const formData = new FormData();
+      formData.append("video", files[1]);
+
+      try {
+        const response = await fetch("/api/verify", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Verification failed: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        if (response.status === 200) {
+          console.log("Fingerprint found:", data);
+        } else if (response.status === 404) {
+          console.log("Fingerprint not found.");
+        }
+        alert(data.message + " " + JSON.stringify(data.data));
+        return data;
+      } catch (error) {
+        console.error("Error during verification:", error);
+        return null;
+      } finally {
+        setLoadingVerify(false);
+      }
+    } else {
+      setLoadingVerify(false);
+      alert("Please upload  video files before submitting.");
+    }
+  }
+
+  function handleSubmit(event) {
+    setLoadingSubmit(true);
+    event.preventDefault();
+    uploadVideo();
+  }
+
   function verifySubmit(event) {
     event.preventDefault();
     setLoadingVerify(true);
-    console.log(files, "file");
-    if (files[1]) {
-      const formData = new FormData();
-      formData.append("videoFile", files[1]);
-      console.log(formData, "file");
-      fetch(verifyVideoUrl, {
-        method: "POST",
-        body: formData,
-      })
-        .then((response) => response.json())
-        .then((response) => {
-          console.log(response);
-          setFoundRecords(response.videoinfo.videoMetaDataList);
-          toast(response.message);
-        })
-        .catch((e) => {
-          console.log(e);
-          toast("Unexpected error occured");
-        });
-    } else {
-      toast("Please upload a video file.");
-    }
-    setLoadingVerify(false);
+    verifyVideo();
   }
 
   function addKeyValuePair() {
