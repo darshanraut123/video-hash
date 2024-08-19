@@ -1,74 +1,56 @@
-import { createHash } from 'crypto';
-import fs from 'fs';
-import { MongoClient } from 'mongodb';
-import multer from 'multer';
-import path from 'path';
-import { promisify } from 'util';
+import { createHash } from "crypto";
+import fs from "fs";
+import { MongoClient } from "mongodb";
+import multer from "multer";
+import path from "path";
+import { promisify } from "util";
 
-const upload = multer({ dest: 'uploads/' }); // Save the files in the 'uploads' directory
+const upload = multer({ dest: "uploads/" }); // Save the files in the 'uploads' directory
 
-const uri = 'mongodb+srv://darshanraut123:darshanraut123@cluster0.blxpgv4.mongodb.net/';
+const uri =
+  "mongodb+srv://darshanraut123:darshanraut123@cluster0.blxpgv4.mongodb.net/";
 const client = new MongoClient(uri);
 
-// Promisify the fs.readFile function
-const readFile = promisify(fs.readFile);
-
-// Disable the default Next.js body parser
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
 const handler = async (req, res) => {
-  if (req.method === 'POST') {
-    try {
-      // Use multer to handle the file upload
-      await new Promise((resolve, reject) => {
-        upload.single('video')(req, res, (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve({});
-          }
-        });
-      });
+  if (req.method === "POST") {
+    console.log("body ===>  " + req.body);
+    const body = req.body;
 
-      // Get the uploaded file path
-      const filePath = path.resolve('./', req.file.path);
+    const url = "http://rrdemo.buzzybrains.net/vapi/generateHash";
+    const subscriptionKey = "8de99f71e2264c6cb1d567bd9d2864a2";
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Ocp-Apim-Subscription-Key": subscriptionKey,
+        "Content-Type": "application/json",
+      },
+      body,
+    });
+    const data = await response.json();
 
-      // Read the file and generate a fingerprint using SHA-256
-      const fileBuffer = await readFile(filePath);
-      const hash = createHash('sha256').update(fileBuffer).digest('hex');
+    // Connect to MongoDB
+    await client.connect();
+    const database = client.db("video-hash"); // Replace with your database name
+    const collection = database.collection("videos");
 
-      // Clean up the uploaded file if needed
-      fs.unlinkSync(filePath);
+    const bodyObj = JSON.parse(body);
+    // Insert the fingerprint and JSON data into the collection
+    const result = await collection.insertOne({
+      fingerprint: data.hash,
+      metaData: [
+        ...bodyObj.metaData,
+        {
+          key: "UploadedAt",
+          value:
+            new Date().toLocaleDateString() +
+            " " +
+            new Date().toLocaleTimeString(),
+        },
+      ],
+      uploadedAt: new Date(),
+    });
 
-      // Parse additional JSON data from the request body
-      const metaData = JSON.parse(req.body.metaData);
-
-      // Connect to MongoDB
-      await client.connect();
-      const database = client.db('video-hash'); // Replace with your database name
-      const collection = database.collection('videos');
-
-      // Insert the fingerprint and JSON data into the collection
-      const result = await collection.insertOne({
-        fingerprint: hash,
-        metaData: metaData,
-        uploadedAt: new Date(),
-      });
-
-      // Return the fingerprint and the inserted ID
-      res.status(200).json({ fingerprint: hash, id: result.insertedId });
-    } catch (error) {
-      console.error('Error processing file:', error);
-      res.status(500).json({ error: 'File upload failed.' });
-    } finally {
-      await client.close();
-    }
-  } else {
-    res.status(405).json({ error: 'Method not allowed.' });
+    res.status(200).json(result);
   }
 };
 

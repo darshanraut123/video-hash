@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import CircularProgress from "@mui/material/CircularProgress";
 import toast, { Toaster } from "react-hot-toast";
 import { Button } from "react-bootstrap";
+import { storage } from "../config";
+import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 
 export default function Home() {
   const [files, setFiles] = useState([null, null]); // State to hold two video files
@@ -13,6 +15,8 @@ export default function Home() {
   const [loadingSubmit, setLoadingSubmit] = useState(false); // State to hold
   const [loadingVerify, setLoadingVerify] = useState(false); // State to hold
   const [foundRecords, setFoundRecords] = useState([]);
+  const [exactFoundRecord, setExactFoundRecord] = useState(null);
+  const [progressPercentage, setProgressPercentage] = useState(0);
 
   const uploadVideoUrl = "http://localhost:8080/upload-video";
   const verifyVideoUrl = "http://localhost:8080/verify-similarity";
@@ -43,105 +47,154 @@ export default function Home() {
     document.querySelectorAll(".file-upload-input")[index].value = "";
   }
 
-  async function uploadVideo() {
-    if (files[0]) {
-      const formData = new FormData();
-      formData.append("video", files[0]);
-      formData.append("metaData", JSON.stringify(keyValuePairs));
-
-      try {
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error(`Upload failed: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log("Upload successful:", data);
-        alert("Video fingerprint generated successfully");
-        return data;
-      } catch (error) {
-        console.error("Error during upload:", error);
-        return null;
-      } finally {
-        setLoadingSubmit(false);
-      }
-    } else {
+  function uploadFileToFirebase() {
+    const file = files[0];
+    if (!file) {
+      toast("Please upload a video file");
       setLoadingSubmit(false);
-      alert("Please upload  video files before submitting.");
+      return;
     }
     if (!keyValuePairs.length) {
       toast("Please add metadata before submitting");
       setLoadingSubmit(false);
       return;
     }
-    if (!keyValuePairs[0].key || !keyValuePairs[0].values) {
+    if (!keyValuePairs[0].key || !keyValuePairs[0].value) {
       toast("Please complete the metadata");
       setLoadingSubmit(false);
       return;
     }
-    const formData = new FormData();
-    formData.append("videoFile", files[0]);
-    formData.append("videoMetaDataJSON", keyValuePairs);
-    console.log(formData);
+    if (!file) {
+      toast("Please select a video file.");
+      setLoadingSubmit(false);
+      return;
+    }
 
-    fetch(uploadVideoUrl, {
-      method: "POST",
-      body: formData,
-    })
-      .then((response) => response.json())
-      .then((response) => {
-        console.log(response);
-        toast("Video records uploaded");
-      })
-      .catch((e) => {
-        console.log(e);
-        toast("Unexpected error occured");
-      });
+    const storageRef = ref(storage, "videos/" + file.name);
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        // Get task progress, including the number of bytes uploaded and the total number of bytes to be uploaded
+        const progress =
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        console.log(progress);
+        setProgressPercentage(progress.toFixed(2));
+      },
+      (error) => {
+        // Handle unsuccessful uploads
+        console.error("Upload failed:", error);
+        setLoadingSubmit(false);
+        setProgressPercentage(0);
+        toast("Upload failed");
+      },
+      () => {
+        // Handle successful uploads on complete
+        getDownloadURL(uploadTask.snapshot.ref).then(async (downloadURL) => {
+          console.log("File available at", downloadURL);
+          setProgressPercentage(0);
+          toast("Processing video fingerprints");
+
+          try {
+            const response = await fetch("/api/upload", {
+              method: "POST",
+              body: JSON.stringify({
+                url: downloadURL,
+                metaData: [
+                  ...keyValuePairs,
+                  { Key: "FileName", value: file.name },
+                ],
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`Upload failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log("Upload successful:", data);
+            toast("Video fingerprint generated & added to records");
+
+            removeUpload(0);
+            setKeyValuePairs([]);
+          } catch (error) {
+            console.error("Error during upload:", error);
+          } finally {
+            setLoadingSubmit(false);
+          }
+        });
+      }
+    );
   }
 
-  async function verifyVideo(file) {
-    if (files[1]) {
-      const formData = new FormData();
-      formData.append("video", files[1]);
-
-      try {
-        const response = await fetch("/api/verify", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error(`Verification failed: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        if (response.status === 200) {
-          console.log("Fingerprint found:", data);
-        } else if (response.status === 404) {
-          console.log("Fingerprint not found.");
-        }
-        alert(data.message + " " + JSON.stringify(data.data));
-        return data;
-      } catch (error) {
-        console.error("Error during verification:", error);
-        return null;
-      } finally {
-        setLoadingVerify(false);
-      }
-    } else {
+  async function verifyVideo() {
+    const file = files[1];
+    if (!file) {
+      toast("Please upload a video file");
       setLoadingVerify(false);
-      alert("Please upload  video files before submitting.");
+      return;
     }
+
+    const storageRef = ref(storage, "videos/" + file.name);
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        const progress =
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        console.log(progress);
+        setProgressPercentage(progress.toFixed(2));
+      },
+      (error) => {
+        console.error("Upload failed:", error);
+        setLoadingVerify(false);
+        setProgressPercentage(0);
+        toast("Upload failed");
+      },
+      () => {
+        getDownloadURL(uploadTask.snapshot.ref).then(async (downloadURL) => {
+          console.log("File available at", downloadURL);
+          setProgressPercentage(0);
+          toast("Searching for similar records.");
+
+          try {
+            const response = await fetch("/api/verify", {
+              method: "POST",
+              body: JSON.stringify({
+                url: downloadURL,
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`Verification failed: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            if (response.status === 200) {
+              console.log("Fingerprint found:", result);
+              toast(result.message);
+              setFoundRecords(result.similarRecords);
+              setExactFoundRecord(result.exactMatchRecord);
+            } else if (response.status === 404) {
+              toast("No matching records found.");
+            }
+          } catch (error) {
+            console.error("Error during verification:", error);
+            toast("Something went wrong");
+          } finally {
+            setLoadingVerify(false);
+          }
+        });
+      }
+    );
   }
 
   function handleSubmit(event) {
     setLoadingSubmit(true);
     event.preventDefault();
-    uploadVideo();
+    uploadFileToFirebase();
   }
 
   function verifySubmit(event) {
@@ -167,27 +220,63 @@ export default function Home() {
   function renderRecords() {
     return foundRecords.length > 0 ? (
       <>
-        <Button onClick={() => setFoundRecords([])} variant="outline-primary">
+        <Button
+          onClick={() => {
+            setFoundRecords([]);
+            setExactFoundRecord(null);
+          }}
+          variant="outline-primary"
+        >
           Reset
         </Button>
-        <table className="table table-hover mt-2">
-          <thead>
-            <tr>
-              <th scope="col">#</th>
-              <th scope="col">Attribute name</th>
-              <th scope="col">Attribute value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {foundRecords.map((metaData, index) => (
-              <tr key={index}>
-                <th scope="row">{index + 1}</th>
-                <td>{metaData.key}</td>
-                <td>{metaData.value}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+        {exactFoundRecord && (
+          <>
+            <h6 className="mt-2">Exact Record Found : </h6>
+            <table className="table table-hover">
+              <thead>
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">Attribute name</th>
+                  <th scope="col">Attribute value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exactFoundRecord.metaData.map((keyVal, index) => (
+                  <tr key={index}>
+                    <th scope="row">{index + 1}</th>
+                    <td>{keyVal.key}</td>
+                    <td>{keyVal.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {foundRecords.map((record, index) => (
+          <>
+            <h6 className="mt-2">Similar Records Found : </h6>
+            <table key={index} className="table table-hover">
+              <thead>
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">Attribute name</th>
+                  <th scope="col">Attribute value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {record.metaData.map((keyVal, index) => (
+                  <tr key={index}>
+                    <th scope="row">{index + 1}</th>
+                    <td>{keyVal.key}</td>
+                    <td>{keyVal.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ))}
       </>
     ) : null;
   }
@@ -285,7 +374,12 @@ export default function Home() {
             {index == 0 ? (
               <div className="submit-button-section">
                 {loadingSubmit ? (
-                  <CircularProgress />
+                  <div className="loader-container">
+                    {progressPercentage == 0 ? null : (
+                      <div>{progressPercentage} %</div>
+                    )}
+                    <CircularProgress />
+                  </div>
                 ) : (
                   <button
                     className="submit-button"
