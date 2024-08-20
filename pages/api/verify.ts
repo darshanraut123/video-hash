@@ -1,79 +1,117 @@
-import { createHash } from 'crypto';
-import fs from 'fs';
-import { MongoClient } from 'mongodb';
-import multer from 'multer';
-import path from 'path';
-import { promisify } from 'util';
+import { createHash } from "crypto";
+import fs from "fs";
+import { MongoClient } from "mongodb";
+import multer from "multer";
+import path from "path";
+import { promisify } from "util";
 
-const upload = multer({ dest: 'uploads/' }); // Save the files in the 'uploads' directory
+const upload = multer({ dest: "uploads/" }); // Save the files in the 'uploads' directory
 
-const uri = 'mongodb+srv://darshanraut123:darshanraut123@cluster0.blxpgv4.mongodb.net/';
+const uri =
+  "mongodb+srv://darshanraut123:darshanraut123@cluster0.blxpgv4.mongodb.net/";
 const client = new MongoClient(uri);
 
 // Promisify the fs.readFile function
 const readFile = promisify(fs.readFile);
 
-// Disable the default Next.js body parser
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
 const handler = async (req, res) => {
-  if (req.method === 'POST') {
+  if (req.method === "POST") {
+    const body = req.body;
+    console.log("body ===>  " + JSON.stringify(body));
+
+    const genHashurl = "http://rrdemo.buzzybrains.net/vapi/generateHash";
+    const subscriptionKey = "8de99f71e2264c6cb1d567bd9d2864a2";
+    const response = await fetch(genHashurl, {
+      method: "POST",
+      headers: {
+        "Ocp-Apim-Subscription-Key": subscriptionKey,
+        "Content-Type": "application/json",
+      },
+      body,
+    });
+    const resdata = await response.json();
+    const sourceHash = resdata.hash;
+
+    // Connect to MongoDB
+    await client.connect();
+    const database = client.db("video-hash"); // Replace with your database name
+    const collection = database.collection("videos");
+    const allDbRecords = await collection.find().toArray();
+    const targetHashes = allDbRecords.map((recObj) => recObj.fingerprint);
+
+    const compareHashesurl = "http://rrdemo.buzzybrains.net/vapi/compareHashes";
+    const data = {
+      sourceHash,
+      targetHashes,
+    };
     try {
-      // Use multer to handle the file upload
-      await new Promise((resolve, reject) => {
-        upload.single('video')(req, res, (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve({});
-          }
-        });
+      const response = await fetch(compareHashesurl, {
+        method: "POST",
+        headers: {
+          "Ocp-Apim-Subscription-Key": subscriptionKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
       });
 
-      // Get the uploaded file path
-      const filePath = path.resolve('./', req.file.path);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const result = await response.json();
+      console.log("Response:", result);
 
-      // Read the file and generate a fingerprint using SHA-256
-      const fileBuffer = await readFile(filePath);
-      const hash = createHash('sha256').update(fileBuffer).digest('hex');
+      if (result.similar_hashes.length > 0) {
+        const similarHashesArr = result.similar_hashes
+          .filter((item) => item.hamming_distance != 0)
+          .map((item) => item.target_hash);
+        const exactMatch = result.similar_hashes.find(
+          (item) => item.hamming_distance === 0
+        );
+        const query = { fingerprint: { $in: similarHashesArr } };
+        let similarRecords = await collection.find(query).toArray();
+        let exactMatchRecord = await collection.findOne({
+          fingerprint: exactMatch.target_hash,
+        });
+        exactMatchRecord = {
+          ...exactMatchRecord,
+          metaData: [
+            ...exactMatchRecord.metaData,
+            { key: "Hamming Distance", value: 0 },
+          ],
+        };
 
-      // Clean up the uploaded file if needed
-      fs.unlinkSync(filePath);
+        similarRecords = similarRecords.map((rec) => {
+          const similarHashesSingleObject = result.similar_hashes.find(
+            (item) => item.target_hash === rec.fingerprint
+          );
+          return {
+            ...rec,
+            metaData: [
+              ...rec.metaData,
+              {
+                key: "Hamming Distance",
+                value: similarHashesSingleObject.hamming_distance,
+              },
+            ],
+          };
+        });
 
-      // Connect to MongoDB
-      await client.connect();
-      const database = client.db('video-hash'); // Replace with your database name
-      const collection = database.collection('videos');
-
-      // Check if the fingerprint already exists in the database
-      const existingDocuments = await collection.find({ fingerprint: hash }).toArray();;
-
-      if (existingDocuments) {
-        // If the fingerprint exists, return a success message
         res.status(200).json({
-          message: 'Fingerprint found in the database.',
-          fingerprint: hash,
-          data: existingDocuments,
+          message: "Matching records found.",
+          exactMatchRecord,
+          similarRecords,
         });
       } else {
-        // If the fingerprint does not exist, return a not found message
-        res.status(404).json({
-          message: 'Fingerprint not found in the database.',
-          fingerprint: hash,
+        res.status(200).json({
+          message: "No matching records found.",
+          exactMatchRecord: null,
+          similarRecords: [],
         });
       }
     } catch (error) {
-      console.error('Error processing file:', error);
-      res.status(500).json({ error: 'Verification failed.' });
-    } finally {
-      await client.close();
+      console.error("Error:", error);
+      res.status(500).json({ error: "Verification failed." });
     }
-  } else {
-    res.status(405).json({ error: 'Method not allowed.' });
   }
 };
 
