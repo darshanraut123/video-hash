@@ -68,10 +68,34 @@ const handler = async (req, res) => {
           (item) => item.hamming_distance === 0
         );
         const query = { fingerprint: { $in: similarHashesArr } };
-        const similarRecords = await collection.find(query).toArray();
-        const exactMatchRecord = await collection.findOne({
+        let similarRecords = await collection.find(query).toArray();
+        let exactMatchRecord = await collection.findOne({
           fingerprint: exactMatch.target_hash,
         });
+        exactMatchRecord = {
+          ...exactMatchRecord,
+          metaData: [
+            ...exactMatchRecord.metaData,
+            { key: "Hamming Distance", value: 0 },
+          ],
+        };
+
+        similarRecords = similarRecords.map((rec) => {
+          const similarHashesSingleObject = result.similar_hashes.find(
+            (item) => item.target_hash === rec.fingerprint
+          );
+          return {
+            ...rec,
+            metaData: [
+              ...rec.metaData,
+              {
+                key: "Hamming Distance",
+                value: similarHashesSingleObject.hamming_distance,
+              },
+            ],
+          };
+        });
+
         res.status(200).json({
           message: "Matching records found.",
           exactMatchRecord,

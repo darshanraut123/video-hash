@@ -1,11 +1,4 @@
-import { createHash } from "crypto";
-import fs from "fs";
 import { MongoClient } from "mongodb";
-import multer from "multer";
-import path from "path";
-import { promisify } from "util";
-
-const upload = multer({ dest: "uploads/" }); // Save the files in the 'uploads' directory
 
 const uri =
   "mongodb+srv://darshanraut123:darshanraut123@cluster0.blxpgv4.mongodb.net/";
@@ -45,6 +38,10 @@ const handler = async (req, res) => {
             new Date().toLocaleDateString() +
             " " +
             new Date().toLocaleTimeString(),
+        },
+        {
+          key: "Download",
+          value: bodyObj.url,
         },
       ],
       uploadedAt: new Date(),

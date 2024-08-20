@@ -220,12 +220,11 @@ export default function Home() {
     setKeyValuePairs(newPairs);
   }
 
-  function renderRecords() {
-    return foundRecords.length > 0 ? (
+  function renderExactRecord() {
+    return exactFoundRecord ? (
       <>
         <Button
           onClick={() => {
-            setFoundRecords([]);
             setExactFoundRecord(null);
           }}
           variant="outline-primary"
@@ -233,33 +232,50 @@ export default function Home() {
           Reset
         </Button>
 
-        {exactFoundRecord && (
-          <>
-            <h6 className="mt-5 mb-2">Exact Record Found : </h6>
-            <table className="table table-hover">
-              <thead>
-                <tr>
-                  <th scope="col">#</th>
-                  <th scope="col">Attribute name</th>
-                  <th scope="col">Attribute value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {exactFoundRecord.metaData.map((keyVal, index) => (
-                  <tr key={index}>
-                    <th scope="row">{index + 1}</th>
-                    <td>{keyVal.key}</td>
-                    <td>{keyVal.value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
+        <h6 className="mt-5 mb-2">Exact Record Found : </h6>
+        <table className="table table-hover">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Attribute</th>
+              <th scope="col">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {exactFoundRecord.metaData.map((keyVal, index) => (
+              <tr key={index}>
+                <th scope="row">{index + 1}</th>
+                <td>{keyVal.key}</td>
+                {keyVal.key === "Download" ? (
+                  <td>
+                    <a href={keyVal.value} target="_blank">
+                      Click here
+                    </a>
+                  </td>
+                ) : (
+                  <td> keyVal.value </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    ) : null;
+  }
 
-        {foundRecords.length > 0 && (
-          <h6 className="mt-5 mb-2">Similar Records Found : </h6>
-        )}
+  function renderSimilarRecords() {
+    return foundRecords.length > 0 ? (
+      <>
+        <Button
+          onClick={() => {
+            setFoundRecords([]);
+          }}
+          variant="outline-primary"
+        >
+          Reset
+        </Button>
+
+        <h6 className="mt-5 mb-2">Similar Records Found : </h6>
         {foundRecords.map((record, index) => (
           <table key={index} className="table table-hover mb-5">
             <thead>
@@ -274,7 +290,15 @@ export default function Home() {
                 <tr key={index}>
                   <th scope="row">{index + 1}</th>
                   <td>{keyVal.key}</td>
-                  <td>{keyVal.value}</td>
+                  {keyVal.key === "Download" ? (
+                    <td>
+                      <a href={keyVal.value} target="_blank">
+                        Click here
+                      </a>
+                    </td>
+                  ) : (
+                    <td> keyVal.value </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -413,7 +437,8 @@ export default function Home() {
                 )}
               </div>
             )}
-            {index == 1 && renderRecords()}
+            {index == 1 && renderExactRecord()}
+            {index == 1 && renderSimilarRecords()}
           </div>
         </div>
       ))}
