@@ -1,6 +1,5 @@
 "use client"; // Mark this as a Client Component
 
-import Table from "react-bootstrap/Table";
 import React, { useState } from "react";
 import CircularProgress from "@mui/material/CircularProgress";
 import toast, { Toaster } from "react-hot-toast";
@@ -253,7 +252,7 @@ export default function Home() {
                     </a>
                   </td>
                 ) : (
-                  <td> keyVal.value </td>
+                  <td>{keyVal.value}</td>
                 )}
               </tr>
             ))}
@@ -297,7 +296,7 @@ export default function Home() {
                       </a>
                     </td>
                   ) : (
-                    <td> keyVal.value </td>
+                    <td>{keyVal.value}</td>
                   )}
                 </tr>
               ))}
