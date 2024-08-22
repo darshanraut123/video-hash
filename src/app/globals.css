@@ -42,7 +42,8 @@ body {
   }
 
   .file-upload-btn {
-    width: 100%;
+    width: 15%;
+    height: 26%;
     margin: 0;
     color: #fff;
     background: #1fb264;
@@ -101,7 +102,7 @@ body {
   }
 
   .scroll {
-    max-height: 90%;
+    max-height: 200px;
     overflow: auto;
     scrollbar-width: thin;
     scrollbar-color: #888 #fff;
@@ -192,6 +193,7 @@ body {
     transition: background-color 0.3s ease;
     display: flex;
     justify-content: center;
+    margin-right: 15px;
   }
 
   .submit-button:hover {
@@ -247,14 +249,14 @@ body {
 
   .add-button-section {
     display: flex;
-    justify-content: flex-end;
+    
     margin: 10px;
   }
 
   .add-button {
     background-color: #42abce;
     padding: 10px;
-    border-radius: 10px;
+    border-radius: 5px;
   }
 
   .add-button:hover {
