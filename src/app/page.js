@@ -398,6 +398,36 @@ export default function Home() {
       setLoadingSubmit(false);
     }
   }
+  async function verifyVideo() {
+    
+    try {
+      const response = await fetch("/api/verify", {
+        method: "POST",
+        body: JSON.stringify({
+          url: originalURL,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Verification failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      if (response.status === 200) {
+        console.log("Fingerprint found:", result);
+        toast(result.message);
+        setFoundRecords(result.similarRecords);
+        setExactFoundRecord(result.exactMatchRecord);
+      } else if (response.status === 404) {
+        toast("No matching records found.");
+      }
+    } catch (error) {
+      console.error("Error during verification:", error);
+      toast("Something went wrong");
+    } finally {
+      setLoadingVerify(false);
+    }
+  }
   return (
     <>
       <Modal
@@ -505,7 +535,7 @@ export default function Home() {
                 >
                   upload
                 </button>
-                <button className="add-button">Verify</button>
+                <button onClick={verifyVideo} className="add-button">Verify</button>
               </div>
             </div>
           </Card>
