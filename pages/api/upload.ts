@@ -9,7 +9,7 @@ const handler = async (req, res) => {
     console.log("body ===>  " + req.body);
     const body = req.body;
 
-    const url = "http://rrdemo.buzzybrains.net/vapi/generateHash";
+    const url = "https://rrdemo.buzzybrains.net/vapi/generateHash";
     const subscriptionKey = "8de99f71e2264c6cb1d567bd9d2864a2";
     const response = await fetch(url, {
       method: "POST",
