@@ -69,16 +69,20 @@ const handler = async (req, res) => {
         );
         const query = { fingerprint: { $in: similarHashesArr } };
         let similarRecords = await collection.find(query).toArray();
-        let exactMatchRecord = await collection.findOne({
-          fingerprint: exactMatch.target_hash,
-        });
-        exactMatchRecord = {
-          ...exactMatchRecord,
-          metaData: [
-            ...exactMatchRecord.metaData,
-            { key: "Hamming Distance", value: 0 },
-          ],
-        };
+
+        let exactMatchRecord = null;
+        if (exactMatch) {
+          exactMatchRecord = await collection.findOne({
+            fingerprint: exactMatch.target_hash,
+          });
+          exactMatchRecord = {
+            ...exactMatchRecord,
+            metaData: [
+              ...exactMatchRecord.metaData,
+              { key: "Hamming Distance", value: 0 },
+            ],
+          };
+        }
 
         similarRecords = similarRecords.map((rec) => {
           const similarHashesSingleObject = result.similar_hashes.find(
