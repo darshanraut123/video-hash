@@ -1,18 +1,8 @@
-import { createHash } from "crypto";
-import fs from "fs";
 import { MongoClient } from "mongodb";
-import multer from "multer";
-import path from "path";
-import { promisify } from "util";
-
-const upload = multer({ dest: "uploads/" }); // Save the files in the 'uploads' directory
 
 const uri =
   "mongodb+srv://darshanraut123:darshanraut123@cluster0.blxpgv4.mongodb.net/";
 const client = new MongoClient(uri);
-
-// Promisify the fs.readFile function
-const readFile = promisify(fs.readFile);
 
 const handler = async (req, res) => {
   if (req.method === "POST") {
@@ -32,58 +22,63 @@ const handler = async (req, res) => {
     const resdata = await response.json();
     const sourceHash = resdata.hash;
 
+    const pipeline = [
+      {
+        $addFields: {
+          hammingDistance: {
+            $sum: {
+              $map: {
+                input: { $range: [0, { $strLenCP: "$fingerprint" }] },
+                as: "index",
+                in: {
+                  $cond: {
+                    if: {
+                      $ne: [
+                        { $substrCP: ["$fingerprint", "$$index", 1] },
+                        { $substrCP: [sourceHash, "$$index", 1] },
+                      ],
+                    },
+                    then: 1,
+                    else: 0,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $match: {
+          hammingDistance: { $lt: 11 },
+        },
+      },
+      {
+        $sort: { hammingDistance: 1 }, // Sort by hammingDistance in ascending order
+      },
+    ];
+
     // Connect to MongoDB
     await client.connect();
     const database = client.db("video-hash"); // Replace with your database name
     const collection = database.collection("videos");
-    const allDbRecords = await collection.find().toArray();
-    const targetHashes = allDbRecords.map((recObj) => recObj.fingerprint);
 
-    const compareHashesurl = "https://rrdemo.buzzybrains.net/vapi/compareHashes";
-    const data = {
-      sourceHash,
-      targetHashes,
-    };
     try {
-      const response = await fetch(compareHashesurl, {
-        method: "POST",
-        headers: {
-          "Ocp-Apim-Subscription-Key": subscriptionKey,
-          "Content-Type": "application/json",
-        },
-        body: data,
-      });
+      // Await the aggregation results
+      const result = await collection.aggregate(pipeline).toArray();
+      console.log("K-Nearest Neighbors:", result);
 
-      if (!response.ok) {
-        console.log("Error",response);
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const result = await response.json();
-      console.log("Response:", response);
+      if (result.length > 0) {
+        // Find similar hashes
+        const similarHashesArr = result
+          .filter((item) => item.hammingDistance != 0)
+          .map((item) => item.fingerprint);
 
-      if (result.similar_hashes.length > 0) {
-        const similarHashesArr = result.similar_hashes
-          .filter((item) => item.hamming_distance != 0)
-          .map((item) => item.target_hash);
-        const exactMatch = result.similar_hashes.find(
-          (item) => item.hamming_distance === 0
-        );
         const query = { fingerprint: { $in: similarHashesArr } };
         let similarRecords = await collection.find(query).toArray();
-        let exactMatchRecord = await collection.findOne({
-          fingerprint: exactMatch.target_hash,
-        });
-        exactMatchRecord = {
-          ...exactMatchRecord,
-          metaData: [
-            ...exactMatchRecord.metaData,
-            { key: "Hamming Distance", value: 0 },
-          ],
-        };
 
         similarRecords = similarRecords.map((rec) => {
-          const similarHashesSingleObject = result.similar_hashes.find(
-            (item) => item.target_hash === rec.fingerprint
+          const similarHashesSingleObject = result.find(
+            (item) => item.fingerprint === rec.fingerprint
           );
           return {
             ...rec,
@@ -91,11 +86,28 @@ const handler = async (req, res) => {
               ...rec.metaData,
               {
                 key: "Hamming Distance",
-                value: similarHashesSingleObject.hamming_distance,
+                value: similarHashesSingleObject.hammingDistance,
               },
             ],
           };
         });
+
+        // Find exact hash
+        const exactMatch = result.find((item) => item.hammingDistance === 0);
+
+        let exactMatchRecord = null;
+        if (exactMatch) {
+          exactMatchRecord = await collection.findOne({
+            fingerprint: exactMatch.fingerprint,
+          });
+          exactMatchRecord = {
+            ...exactMatchRecord,
+            metaData: [
+              ...exactMatchRecord.metaData,
+              { key: "Hamming Distance", value: 0 },
+            ],
+          };
+        }
 
         res.status(200).json({
           message: "Matching records found.",

@@ -23,6 +23,8 @@ export default function Home() {
   const [processedVideo, setProcessedVideo] = useState([null]);
   const [processedVideoName, setProcessedVideoName] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [verifyloading, setVerifyloading] = useState(false);
+  const [recordModalOpen, setRecordModalOpen] = useState(false);
   const uploadVideoUrl = "http://localhost:8080/upload-video";
   const verifyVideoUrl = "http://localhost:8080/verify-similarity";
 
@@ -428,13 +430,18 @@ export default function Home() {
       if (response.status === 200) {
         console.log("Fingerprint found:", result);
         toast(result.message);
+
         setFoundRecords(result.similarRecords);
         setExactFoundRecord(result.exactMatchRecord);
+        setVerifyloading(false);
       } else if (response.status === 404) {
+        setVerifyloading(false);
         toast("No matching records found.");
       }
     } catch (error) {
       console.error("Error during verification:", error);
+      setVerifyloading(false);
+      setRecordModalOpen(false);
       toast("Something went wrong");
     } finally {
       setLoadingVerify(false);
@@ -442,6 +449,38 @@ export default function Home() {
   }
   return (
     <>
+      <Modal
+        className="modal-container"
+        open={recordModalOpen}
+        onClose={() => {
+          setRecordModalOpen(false);
+          setKeyValuePairs([]);
+        }}
+        aria-labelledby="modal-modal-title"
+        aria-describedby="modal-modal-description"
+      >
+        {verifyloading ? (
+          <CircularProgress />
+        ) : (
+          <div
+            style={{
+              backgroundColor: "white",
+              width: "30%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              padding: "20px",
+              borderRadius: "10px",
+              maxHeight: "400px",
+              overflow: "scroll",
+            }}
+          >
+            {console.log(exactFoundRecord, "records", foundRecords)}
+            {renderExactRecord()}
+            {renderSimilarRecords()}
+          </div>
+        )}
+      </Modal>
       <Modal
         className="modal-container"
         open={modalOpen}
@@ -576,7 +615,8 @@ export default function Home() {
                 <button
                   onClick={() => {
                     verifyVideoURL(originalURL);
-                   
+                    setVerifyloading(true);
+                    setRecordModalOpen(true);
                   }}
                   className="add-button"
                 >
@@ -609,7 +649,11 @@ export default function Home() {
                           upload
                         </button>
                         <button
-                          onClick={() => verifyVideoURL(res.url)}
+                          onClick={() => {
+                            verifyVideoURL(res.url);
+                            setVerifyloading(true);
+                            setRecordModalOpen(true);
+                          }}
                           className="add-button"
                         >
                           Verify
