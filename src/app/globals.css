@@ -42,7 +42,7 @@ body {
   }
 
   .file-upload-btn {
-    width: 15%;
+    /* width: 15%; */
     height: 26%;
     margin: 0;
     color: #fff;
@@ -274,4 +274,77 @@ body {
     height: 100px;
     flex-direction: column;
   }
+  .video-heading{
+    font-weight: bold;
+    margin: 5px;
+  }
+
+  .modal-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+   
+  }
+  
+  .modal-content {
+    background-color: white;
+    width: 30%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .main-container {
+    padding: 10px;
+    margin: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .remove-video-button {
+    background-color: red;
+    color: white;
+    border-radius: 5px;
+    padding: 10px;
+    margin-left: 10px;
+  }
+  
+  .card-container {
+    padding: 10px;
+    width: 80%;
+    margin-top: 15px;
+background-color: red;
+  }
+  
+  .video-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .processed-videos-container {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-top: 1px solid black;
+  }
+  
+  .processed-video-card {
+    margin: 15px;
+  }
+  
+  .add-button-section {
+    margin-top: 10px;
+  }
+  
+  .input-keyPair {
+    margin: 5px;
+  }
+  
+  .remove-button {
+    margin-right: 10px;
+  }
+  
 }

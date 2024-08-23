@@ -19,7 +19,7 @@ const handler = async (req, res) => {
     const body = req.body;
     console.log("body ===>  " + JSON.stringify(body));
 
-    const genHashurl = "http://rrdemo.buzzybrains.net/vapi/generateHash";
+    const genHashurl = "https://rrdemo.buzzybrains.net/vapi/generateHash";
     const subscriptionKey = "8de99f71e2264c6cb1d567bd9d2864a2";
     const response = await fetch(genHashurl, {
       method: "POST",
@@ -39,7 +39,7 @@ const handler = async (req, res) => {
     const allDbRecords = await collection.find().toArray();
     const targetHashes = allDbRecords.map((recObj) => recObj.fingerprint);
 
-    const compareHashesurl = "http://rrdemo.buzzybrains.net/vapi/compareHashes";
+    const compareHashesurl = "https://rrdemo.buzzybrains.net/vapi/compareHashes";
     const data = {
       sourceHash,
       targetHashes,
@@ -51,14 +51,15 @@ const handler = async (req, res) => {
           "Ocp-Apim-Subscription-Key": subscriptionKey,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: data,
       });
 
       if (!response.ok) {
+        console.log("Error",response);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const result = await response.json();
-      console.log("Response:", result);
+      console.log("Response:", response);
 
       if (result.similar_hashes.length > 0) {
         const similarHashesArr = result.similar_hashes

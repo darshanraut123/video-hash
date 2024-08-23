@@ -18,7 +18,11 @@ export default function Home() {
   const [exactFoundRecord, setExactFoundRecord] = useState(null);
   const [progressPercentage, setProgressPercentage] = useState(0);
   const [originalURL, setOriginalURL] = useState(null);
+  const [processURL, setprocessURL] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [processedVideo, setProcessedVideo] = useState([null]);
+  const [processedVideoName, setProcessedVideoName] = useState(null);
+  const [loading, setLoading] = useState(false);
   const uploadVideoUrl = "http://localhost:8080/upload-video";
   const verifyVideoUrl = "http://localhost:8080/verify-similarity";
 
@@ -56,6 +60,7 @@ export default function Home() {
       const result = await response.json();
       if (result.success) {
         console.log("file", result);
+        setProcessedVideo(result.response);
         // setSuccessMessage(`Video processed successfully: ${result.file}`);
       } else {
         throw new Error(result.error);
@@ -189,7 +194,7 @@ export default function Home() {
     );
   }
 
-  async function verifyVideo() {
+  async function verifyVideo(url) {
     setFoundRecords([]);
     setExactFoundRecord(null);
 
@@ -227,7 +232,7 @@ export default function Home() {
             const response = await fetch("/api/verify", {
               method: "POST",
               body: JSON.stringify({
-                url: downloadURL,
+                url: url,
               }),
             });
 
@@ -369,15 +374,20 @@ export default function Home() {
     ) : null;
   }
   async function uploadFileURL() {
-    console.log(files[0], "Uploading file", originalURL);
+    setLoading(true);
+    console.log(files[0], "Uploading file", processedVideoName);
+
     try {
       const response = await fetch("/api/upload", {
         method: "POST",
         body: JSON.stringify({
-          url: originalURL,
+          url: processURL ? processURL : originalURL,
           metaData: [
             ...keyValuePairs,
-            { key: "FileName", value: files[0].name },
+            {
+              key: "FileName",
+              value: processedVideoName ? processedVideoName : files[0].name,
+            },
           ],
         }),
       });
@@ -392,19 +402,21 @@ export default function Home() {
 
       removeUpload(0);
       setKeyValuePairs([]);
+      setModalOpen(false);
+      setLoading(false);
     } catch (error) {
       console.error("Error during upload:", error);
+      setLoading(false);
     } finally {
       setLoadingSubmit(false);
     }
   }
-  async function verifyVideo() {
-    
+  async function verifyVideoURL(url) {
     try {
       const response = await fetch("/api/verify", {
         method: "POST",
         body: JSON.stringify({
-          url: originalURL,
+          url: url,
         }),
       });
 
@@ -431,14 +443,12 @@ export default function Home() {
   return (
     <>
       <Modal
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          flexDirection: "column",
-        }}
+        className="modal-container"
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          setKeyValuePairs([]);
+        }}
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
       >
@@ -485,9 +495,13 @@ export default function Home() {
           </div>
           <div className="add-button-section">
             {keyValuePairs.length > 0 ? (
-              <button onClick={uploadFileURL} className="submit-button">
-                Upload File
-              </button>
+              loading ? (
+                <CircularProgress />
+              ) : (
+                <button onClick={uploadFileURL} className="submit-button">
+                  Upload File
+                </button>
+              )
             ) : null}
             <button
               type="button"
@@ -499,20 +513,33 @@ export default function Home() {
           </div>
         </div>
       </Modal>
-      <div style={{ padding: "10px", margin: "10px" }}>
+      <div className="main-container">
         <Toaster />
-        <button
-          className="file-upload-btn"
-          type="button"
-          onClick={() =>
-            document.querySelectorAll(".file-upload-input")[index].click()
-          }
-        >
-          {progressPercentage == 0 || progressPercentage == 100
-            ? "Choose from media library"
-            : "uploading..."}
-        </button>
+        <div>
+          <button
+            className="file-upload-btn"
+            type="button"
+            onClick={() =>
+              document.querySelectorAll(".file-upload-input")[index].click()
+            }
+          >
+            {progressPercentage == 0 || progressPercentage == 100
+              ? "Choose from media library"
+              : "uploading..."}
+          </button>
 
+          {originalURL ? (
+            <button
+              onClick={() => {
+                setProcessedVideo([]);
+                setOriginalURL(null);
+              }}
+              className="remove-video-button"
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
         <input
           hidden
           className="file-upload-input"
@@ -522,8 +549,16 @@ export default function Home() {
         />
 
         {originalURL && (
-          <Card style={{ padding: "10px", width: "80%", marginTop: "15px" }}>
-            <div>
+          <Card
+            style={{
+              padding: "10px",
+              width: "80%",
+              marginTop: "15px",
+              backgroundColor: "#f7fbff",
+            }}
+          >
+            <div className="video-section">
+              <div className="video-heading">original video</div>
               <video width="220" height="210" controls>
                 <source src={originalURL} type="video/mp4" />
                 Your browser does not support the video tag.
@@ -531,12 +566,58 @@ export default function Home() {
               <div className="add-button-section">
                 <button
                   className="submit-button"
-                  onClick={() => setModalOpen(true)}
+                  onClick={() => {
+                    setModalOpen(true);
+                    setprocessURL(null);
+                  }}
                 >
                   upload
                 </button>
-                <button onClick={verifyVideo} className="add-button">Verify</button>
+                <button
+                  onClick={() => {
+                    verifyVideoURL(originalURL);
+                   
+                  }}
+                  className="add-button"
+                >
+                  Verify
+                </button>
               </div>
+            </div>
+            <div className="processed-videos-container">
+              {processedVideo.length > 0 &&
+                processedVideo.map((res) => {
+                  return (
+                    <div className="processed-video-card">
+                      {console.log(res, "res")}
+                      <div className="video-heading">
+                        {res?.filename || "processed video"}
+                      </div>
+                      <video width="220" height="210" controls>
+                        <source src={res?.url} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                      <div className="add-button-section">
+                        <button
+                          className="submit-button"
+                          onClick={() => {
+                            setModalOpen(true);
+                            setprocessURL(res.url);
+                            setProcessedVideoName(res.filename);
+                          }}
+                        >
+                          upload
+                        </button>
+                        <button
+                          onClick={() => verifyVideoURL(res.url)}
+                          className="add-button"
+                        >
+                          Verify
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </Card>
         )}

@@ -40,53 +40,63 @@ export default async function handler(req, res) {
       if (err) {
         return res.status(500).json({ success: false, error: err.message });
       }
-
+    
       const { file } = req;
       const { outputFileName } = req.body;
-
+    
       if (!file) {
-        return res
-          .status(400)
-          .json({ success: false, error: "No file uploaded." });
+        return res.status(400).json({ success: false, error: "No file uploaded." });
       }
-
+    
       const outputPath = path.join(process.cwd(), "public", outputFileName);
-
-      let outputArray: any = [];
-      parameters.forEach((option, id) => {
-        console.log(option, id, "id value");
-        ffmpeg(file.path)
-          .outputOptions(option)
-          .on("end", async () => {
-            console.log(file.originalname, "file");
-            // fs.unlinkSync(file.path);
-
-            const processedFileBuffer = fs.readFileSync(outputPath);
-            const storageRef = ref(
-              storage,
-              `${file.originalname}/${parametersDetails[id]}${"_"}${
-                file.originalname
-              }`
-            );
-            await uploadBytes(storageRef, processedFileBuffer, {
-              contentType: "video/mp4",
+    
+      try {
+        const outputArray = await Promise.all(
+          parameters.map((option, id) => {
+            return new Promise((resolve, reject) => {
+              ffmpeg(file.path)
+                .outputOptions(option)
+                .on("end", async () => {
+                  try {
+                    console.log(file.originalname, "file");
+                    
+                    const processedFileBuffer = fs.readFileSync(outputPath);
+                    const storageRef = ref(
+                      storage,
+                      `${file.originalname}/${parametersDetails[id]}_${file.originalname}`
+                    );
+                    await uploadBytes(storageRef, processedFileBuffer, {
+                      contentType: "video/mp4",
+                    });
+    
+                    const url = await getDownloadURL(storageRef);
+                    let obj={
+                      url:url,
+                      filename:parametersDetails[id],
+                    }
+                    console.log("URL obtained:", url);
+                    resolve(obj);
+                  } catch (uploadErr) {
+                    reject(uploadErr);
+                  }
+                })
+                .on("error", (err) => {
+                  console.error("Error: " + err.message);
+                  reject(err);
+                })
+                .save(outputPath);
             });
-
-            // Get the downloadable URL
-            const url = await getDownloadURL(storageRef);
-            outputArray.push(url);
-            console.log("ur got", url);
           })
-          .on("error", (err) => {
-            console.error("Error: " + err.message);
-            // res.status(500).json({ success: false, error: err.message });
-          });
-        // .save(outputPath);
-      });
-
-      res.status(200).json({ success: true, response: outputArray });
-      console.log("Success", outputPath);
+        );
+    
+        res.status(200).json({ success: true, response: outputArray });
+        console.log("Success", outputPath);
+      } catch (processingError) {
+        res.status(500).json({ success: false, error: processingError.message });
+        console.error("Processing error: ", processingError.message);
+      }
     });
+    
 
     // // Upload to Firebase Storage
   } else {
