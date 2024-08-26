@@ -36,20 +36,20 @@ export default async function handler(req, res) {
   if (req.method === "POST") {
     // Handle the file upload using multer
     console.log(upload, "upload");
-    upload.single("video")(req, res, async (err) => {
+    await upload.single("video")(req, res, async (err) => {
       if (err) {
         return res.status(500).json({ success: false, error: err.message });
       }
-    
       const { file } = req;
       const { outputFileName } = req.body;
-    
       if (!file) {
-        return res.status(400).json({ success: false, error: "No file uploaded." });
+        return res
+          .status(400)
+          .json({ success: false, error: "No file uploaded." });
       }
-    
+
       const outputPath = path.join(process.cwd(), "public", outputFileName);
-    
+
       try {
         const outputArray = await Promise.all(
           parameters.map((option, id) => {
@@ -59,7 +59,7 @@ export default async function handler(req, res) {
                 .on("end", async () => {
                   try {
                     console.log(file.originalname, "file");
-                    
+
                     const processedFileBuffer = fs.readFileSync(outputPath);
                     const storageRef = ref(
                       storage,
@@ -68,12 +68,12 @@ export default async function handler(req, res) {
                     await uploadBytes(storageRef, processedFileBuffer, {
                       contentType: "video/mp4",
                     });
-    
+
                     const url = await getDownloadURL(storageRef);
-                    let obj={
-                      url:url,
-                      filename:parametersDetails[id],
-                    }
+                    let obj = {
+                      url: url,
+                      filename: parametersDetails[id],
+                    };
                     console.log("URL obtained:", url);
                     resolve(obj);
                   } catch (uploadErr) {
@@ -88,15 +88,16 @@ export default async function handler(req, res) {
             });
           })
         );
-    
+
         res.status(200).json({ success: true, response: outputArray });
         console.log("Success", outputPath);
       } catch (processingError) {
-        res.status(500).json({ success: false, error: processingError.message });
+        res
+          .status(500)
+          .json({ success: false, error: processingError.message });
         console.error("Processing error: ", processingError.message);
       }
     });
-    
 
     // // Upload to Firebase Storage
   } else {

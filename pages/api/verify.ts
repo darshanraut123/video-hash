@@ -6,12 +6,12 @@ const client = new MongoClient(uri);
 
 const handler = async (req, res) => {
   if (req.method === "POST") {
-    const body = req.body;
-    console.log("body ===>  " + JSON.stringify(body));
+    let body = req.body;
+    if (typeof body !== "string") body = JSON.stringify(body);
 
-    const genHashurl = "https://rrdemo.buzzybrains.net/vapi/generateHash";
+    const url = "https://rrdemo.buzzybrains.net/vapi/generateHash";
     const subscriptionKey = "8de99f71e2264c6cb1d567bd9d2864a2";
-    const response = await fetch(genHashurl, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Ocp-Apim-Subscription-Key": subscriptionKey,
@@ -19,9 +19,9 @@ const handler = async (req, res) => {
       },
       body,
     });
-    const resdata = await response.json();
-    const sourceHash = resdata.hash;
-
+    const data = await response.json();
+    const sourceHash = data.hash;
+    console.log("sourceHash ===> " + sourceHash);
     const pipeline = [
       {
         $addFields: {
@@ -77,7 +77,7 @@ const handler = async (req, res) => {
         let similarRecords = await collection.find(query).toArray();
 
         similarRecords = similarRecords.map((rec) => {
-          const similarHashesSingleObject = result.find(
+          const similarHashesSingleObject: any = result.find(
             (item) => item.fingerprint === rec.fingerprint
           );
           return {
@@ -95,7 +95,7 @@ const handler = async (req, res) => {
         // Find exact hash
         const exactMatch = result.find((item) => item.hammingDistance === 0);
 
-        let exactMatchRecord = null;
+        let exactMatchRecord: any = null;
         if (exactMatch) {
           exactMatchRecord = await collection.findOne({
             fingerprint: exactMatch.fingerprint,

@@ -43,7 +43,7 @@ body {
 
   .file-upload-btn {
     /* width: 15%; */
-    height: 26%;
+    height: auto;
     margin: 0;
     color: #fff;
     background: #1fb264;
@@ -185,7 +185,7 @@ body {
   .submit-button {
     background-color: #0070f3;
     color: white;
-    padding: 10px 20px;
+    padding: 0px 5px;
     border: none;
     border-radius: 5px;
     cursor: pointer;
@@ -193,7 +193,7 @@ body {
     transition: background-color 0.3s ease;
     display: flex;
     justify-content: center;
-    margin-right: 15px;
+    margin: 5px;
   }
 
   .submit-button:hover {
@@ -247,22 +247,6 @@ body {
     color: #575454;
   }
 
-  .add-button-section {
-    display: flex;
-    
-    margin: 10px;
-  }
-
-  .add-button {
-    background-color: #42abce;
-    padding: 10px;
-    border-radius: 5px;
-  }
-
-  .add-button:hover {
-    background-color: #053a4b;
-  }
-
   .row {
     text-transform: capitalize;
   }
@@ -274,7 +258,8 @@ body {
     height: 100px;
     flex-direction: column;
   }
-  .video-heading{
+
+  .video-heading {
     font-weight: bold;
     margin: 5px;
   }
@@ -284,9 +269,9 @@ body {
     justify-content: center;
     align-items: center;
     flex-direction: column;
-   
+
   }
-  
+
   .modal-content {
     background-color: white;
     width: 30%;
@@ -294,7 +279,7 @@ body {
     flex-direction: column;
     align-items: center;
   }
-  
+
   .main-container {
     padding: 10px;
     margin: 10px;
@@ -302,7 +287,7 @@ body {
     flex-direction: column;
     align-items: center;
   }
-  
+
   .remove-video-button {
     background-color: red;
     color: white;
@@ -310,41 +295,41 @@ body {
     padding: 10px;
     margin-left: 10px;
   }
-  
+
   .card-container {
     padding: 10px;
     width: 80%;
     margin-top: 15px;
-background-color: red;
+    background-color: red;
   }
-  
+
   .video-section {
     display: flex;
     flex-direction: column;
     align-items: center;
   }
-  
+
   .processed-videos-container {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
     border-top: 1px solid black;
   }
-  
+
   .processed-video-card {
     margin: 15px;
   }
-  
+
   .add-button-section {
     margin-top: 10px;
   }
-  
+
   .input-keyPair {
     margin: 5px;
   }
-  
+
   .remove-button {
     margin-right: 10px;
   }
-  
+
 }

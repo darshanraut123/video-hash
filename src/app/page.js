@@ -20,11 +20,13 @@ export default function Home() {
   const [originalURL, setOriginalURL] = useState(null);
   const [processURL, setprocessURL] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [processedVideo, setProcessedVideo] = useState([null]);
+  const [processedVideo, setProcessedVideo] = useState([]);
   const [processedVideoName, setProcessedVideoName] = useState(null);
   const [loading, setLoading] = useState(false);
   const [verifyloading, setVerifyloading] = useState(false);
   const [recordModalOpen, setRecordModalOpen] = useState(false);
+  const [loadingVideoProcessing, setLoadingVideoProcessing] = useState(false);
+
   const uploadVideoUrl = "http://localhost:8080/upload-video";
   const verifyVideoUrl = "http://localhost:8080/verify-similarity";
 
@@ -38,7 +40,7 @@ export default function Home() {
       newPreviews[index] = URL.createObjectURL(input.files[0]); // Create preview URL
       setPreviews(newPreviews);
       uploadToFirebase(input.files[0]);
-      getVideoURLWithParameters(input.files[0]);
+      // getVideoURLWithParameters(input.files[0]);
     } else {
       removeUpload(index);
     }
@@ -50,7 +52,8 @@ export default function Home() {
     formData.append("outputFileName", "processed_video.mp4");
 
     try {
-      const response = await fetch("/api/processVideo", {
+      setLoadingVideoProcessing(true);
+      const response = await fetch("/api/process", {
         method: "POST",
         body: formData,
       });
@@ -63,15 +66,15 @@ export default function Home() {
       if (result.success) {
         console.log("file", result);
         setProcessedVideo(result.response);
-        // setSuccessMessage(`Video processed successfully: ${result.file}`);
       } else {
+        setLoadingVideoProcessing(false);
         throw new Error(result.error);
       }
     } catch (err) {
       // setError(`Processing failed: ${err.message}`);
       console.log(err, "error");
     } finally {
-      // setIsLoading(false);
+      setLoadingVideoProcessing(false);
     }
   }
   function uploadToFirebase(file) {
@@ -294,6 +297,7 @@ export default function Home() {
         <Button
           onClick={() => {
             setExactFoundRecord(null);
+            setRecordModalOpen(false);
           }}
           variant="outline-primary"
         >
@@ -337,6 +341,7 @@ export default function Home() {
         <Button
           onClick={() => {
             setFoundRecords([]);
+            setRecordModalOpen(false);
           }}
           variant="outline-primary"
         >
@@ -429,14 +434,20 @@ export default function Home() {
       const result = await response.json();
       if (response.status === 200) {
         console.log("Fingerprint found:", result);
-        toast(result.message);
-
-        setFoundRecords(result.similarRecords);
-        setExactFoundRecord(result.exactMatchRecord);
+        if (result.similarRecords.length || result.exactMatchRecord) {
+          setFoundRecords(result.similarRecords);
+          setExactFoundRecord(result.exactMatchRecord);
+        } else {
+          setFoundRecords([]);
+          setExactFoundRecord(null);
+          setRecordModalOpen(false);
+        }
         setVerifyloading(false);
+        toast(result.message);
       } else if (response.status === 404) {
         setVerifyloading(false);
         toast("No matching records found.");
+        setRecordModalOpen(false);
       }
     } catch (error) {
       console.error("Error during verification:", error);
@@ -454,7 +465,6 @@ export default function Home() {
         open={recordModalOpen}
         onClose={() => {
           setRecordModalOpen(false);
-          setKeyValuePairs([]);
         }}
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
@@ -465,7 +475,7 @@ export default function Home() {
           <div
             style={{
               backgroundColor: "white",
-              width: "30%",
+              width: "50%",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -475,7 +485,6 @@ export default function Home() {
               overflow: "scroll",
             }}
           >
-            {console.log(exactFoundRecord, "records", foundRecords)}
             {renderExactRecord()}
             {renderSimilarRecords()}
           </div>
@@ -485,8 +494,10 @@ export default function Home() {
         className="modal-container"
         open={modalOpen}
         onClose={() => {
-          setModalOpen(false);
-          setKeyValuePairs([]);
+          if (!loading) {
+            setModalOpen(false);
+            setKeyValuePairs([]);
+          }
         }}
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
@@ -494,7 +505,7 @@ export default function Home() {
         <div
           style={{
             backgroundColor: "white",
-            width: "30%",
+            width: "50%",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -532,23 +543,25 @@ export default function Home() {
               </div>
             ))}
           </div>
-          <div className="add-button-section">
-            {keyValuePairs.length > 0 ? (
-              loading ? (
-                <CircularProgress />
-              ) : (
-                <button onClick={uploadFileURL} className="submit-button">
-                  Upload File
+          <div className="submit-button-section">
+            {loading ? (
+              <CircularProgress />
+            ) : (
+              <>
+                {keyValuePairs.length > 0 ? (
+                  <button onClick={uploadFileURL} className="submit-button">
+                    Upload File
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={addKeyValuePair}
+                  className="submit-button"
+                >
+                  Add +
                 </button>
-              )
-            ) : null}
-            <button
-              type="button"
-              onClick={addKeyValuePair}
-              className="add-button"
-            >
-              Add +
-            </button>
+              </>
+            )}
           </div>
         </div>
       </Modal>
@@ -563,8 +576,8 @@ export default function Home() {
             }
           >
             {progressPercentage == 0 || progressPercentage == 100
-              ? "Choose from media library"
-              : "uploading..."}
+              ? "Choose a video from media library"
+              : progressPercentage + "% Uploading..."}
           </button>
 
           {originalURL ? (
@@ -597,20 +610,20 @@ export default function Home() {
             }}
           >
             <div className="video-section">
-              <div className="video-heading">original video</div>
+              <div className="video-heading">Original Video</div>
               <video width="220" height="210" controls>
                 <source src={originalURL} type="video/mp4" />
                 Your browser does not support the video tag.
               </video>
-              <div className="add-button-section">
+              <div className="submit-button-section mb-2">
                 <button
-                  className="submit-button"
+                  className="btn btn-primary"
                   onClick={() => {
                     setModalOpen(true);
                     setprocessURL(null);
                   }}
                 >
-                  upload
+                  Upload
                 </button>
                 <button
                   onClick={() => {
@@ -618,18 +631,54 @@ export default function Home() {
                     setVerifyloading(true);
                     setRecordModalOpen(true);
                   }}
-                  className="add-button"
+                  className="btn btn-success mx-2"
                 >
                   Verify
+                </button>
+
+                <button
+                  onClick={() => {
+                    getVideoURLWithParameters(files[0]);
+                  }}
+                  className="btn btn-secondary"
+                >
+                  Create Variants
                 </button>
               </div>
             </div>
             <div className="processed-videos-container">
+              {loadingVideoProcessing && (
+                <div
+                  style={{
+                    margin: "10px",
+                    height: "100px",
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    flexDirection: "column",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-evenly",
+                      alignItems: "center",
+                      flexDirection: "column",
+                    }}
+                  >
+                    <div>Processing...</div>
+                    <div>
+                      Creating multiple variants of video file, it might take
+                      some time.
+                    </div>
+                    <CircularProgress />
+                  </div>
+                </div>
+              )}
               {processedVideo.length > 0 &&
-                processedVideo.map((res) => {
+                processedVideo.map((res, index) => {
                   return (
-                    <div className="processed-video-card">
-                      {console.log(res, "res")}
+                    <div key={index} className="processed-video-card">
                       <div className="video-heading">
                         {res?.filename || "processed video"}
                       </div>
@@ -637,7 +686,7 @@ export default function Home() {
                         <source src={res?.url} type="video/mp4" />
                         Your browser does not support the video tag.
                       </video>
-                      <div className="add-button-section">
+                      <div className="submit-button-section">
                         <button
                           className="submit-button"
                           onClick={() => {
@@ -646,7 +695,7 @@ export default function Home() {
                             setProcessedVideoName(res.filename);
                           }}
                         >
-                          upload
+                          Upload
                         </button>
                         <button
                           onClick={() => {
@@ -654,9 +703,17 @@ export default function Home() {
                             setVerifyloading(true);
                             setRecordModalOpen(true);
                           }}
-                          className="add-button"
+                          className="submit-button"
                         >
                           Verify
+                        </button>
+                        <button
+                          className="submit-button"
+                          onClick={() => {
+                            window.open(res.url);
+                          }}
+                        >
+                          Download
                         </button>
                       </div>
                     </div>
