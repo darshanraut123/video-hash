@@ -22,6 +22,7 @@ const handler = async (req, res) => {
     const data = await response.json();
     const sourceHash = data.hash;
     console.log("sourceHash ===> " + sourceHash);
+
     const pipeline = [
       {
         $addFields: {
