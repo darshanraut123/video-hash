@@ -6,16 +6,29 @@ import toast, { Toaster } from "react-hot-toast";
 import { Button } from "react-bootstrap";
 import { storage } from "../config";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
-
+import { Box, Card, Modal } from "@mui/material";
+const index = 0;
 export default function Home() {
   const [files, setFiles] = useState([null, null]); // State to hold two video files
   const [previews, setPreviews] = useState([]); // State to hold video previews
   const [keyValuePairs, setKeyValuePairs] = useState([]); // State to hold key-value pairs
   const [loadingSubmit, setLoadingSubmit] = useState(false); // State to hold
   const [loadingVerify, setLoadingVerify] = useState(false); // State to hold
-  const [foundRecords, setFoundRecords] = useState([]);
+  const [similarFoundRecords, setSimilarFoundRecords] = useState([]);
   const [exactFoundRecord, setExactFoundRecord] = useState(null);
   const [progressPercentage, setProgressPercentage] = useState(0);
+  const [originalURL, setOriginalURL] = useState(null);
+  const [processURL, setprocessURL] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [processedVideo, setProcessedVideo] = useState([]);
+  const [processedVideoName, setProcessedVideoName] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [isVerificationsLoading, setIsVerificationsLoading] = useState(false);
+  const [recordModalOpen, setRecordModalOpen] = useState(false);
+  const [allRecordsVerifiedModalOpen, setAllRecordsVerifiedModalOpen] =
+    useState(false);
+  const [loadingVideoProcessing, setLoadingVideoProcessing] = useState(false);
+  const [allRecordsVerified, setAllRecordsVerified] = useState([]);
 
   const uploadVideoUrl = "http://localhost:8080/upload-video";
   const verifyVideoUrl = "http://localhost:8080/verify-similarity";
@@ -29,11 +42,74 @@ export default function Home() {
       const newPreviews = [...previews];
       newPreviews[index] = URL.createObjectURL(input.files[0]); // Create preview URL
       setPreviews(newPreviews);
+      uploadToFirebase(input.files[0]);
+      // getVideoURLWithParameters(input.files[0]);
     } else {
       removeUpload(index);
     }
   }
 
+  async function getVideoURLWithParameters(file) {
+    const formData = new FormData();
+    formData.append("video", file);
+    formData.append("outputFileName", "processed_video.mp4");
+
+    try {
+      setLoadingVideoProcessing(true);
+      const response = await fetch("/api/process", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to process the video");
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        console.log("file", result);
+        toast(result.message);
+        // setProcessedVideo(result.response);
+      } else {
+        setLoadingVideoProcessing(false);
+        throw new Error(result.error);
+      }
+    } catch (err) {
+      // setError(`Processing failed: ${err.message}`);
+      console.log(err, "error");
+    } finally {
+      setLoadingVideoProcessing(false);
+    }
+  }
+  function uploadToFirebase(file) {
+    console.log(file, "file");
+    const storageRef = ref(storage, "videos/" + file.name);
+    const uploadTask = uploadBytesResumable(storageRef, file);
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        // Get task progress, including the number of bytes uploaded and the total number of bytes to be uploaded
+        const progress =
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        console.log(progress);
+        setProgressPercentage(progress.toFixed(2));
+      },
+      (error) => {
+        // Handle unsuccessful uploads
+        console.error("Upload failed:", error);
+        setLoadingSubmit(false);
+        setProgressPercentage(0);
+        toast("Upload failed");
+      },
+      () => {
+        // Handle successful uploads on complete
+        getDownloadURL(uploadTask.snapshot.ref).then(async (downloadURL) => {
+          console.log("File available at", downloadURL);
+          setOriginalURL(downloadURL);
+        });
+      }
+    );
+  }
   function removeUpload(index) {
     const newFiles = [...files];
     newFiles[index] = null;
@@ -127,8 +203,8 @@ export default function Home() {
     );
   }
 
-  async function verifyVideo() {
-    setFoundRecords([]);
+  async function verifyVideo(url) {
+    setSimilarFoundRecords([]);
     setExactFoundRecord(null);
 
     const file = files[1];
@@ -165,7 +241,7 @@ export default function Home() {
             const response = await fetch("/api/verify", {
               method: "POST",
               body: JSON.stringify({
-                url: downloadURL,
+                url: url,
               }),
             });
 
@@ -177,7 +253,7 @@ export default function Home() {
             if (response.status === 200) {
               console.log("Fingerprint found:", result);
               toast(result.message);
-              setFoundRecords(result.similarRecords);
+              setSimilarFoundRecords(result.similarRecords);
               setExactFoundRecord(result.exactMatchRecord);
             } else if (response.status === 404) {
               toast("No matching records found.");
@@ -225,6 +301,7 @@ export default function Home() {
         <Button
           onClick={() => {
             setExactFoundRecord(null);
+            setRecordModalOpen(false);
           }}
           variant="outline-primary"
         >
@@ -262,12 +339,49 @@ export default function Home() {
     ) : null;
   }
 
+  function renderEachExactRecord(eachExactRecord) {
+    return eachExactRecord ? (
+      <>
+        <h6 className="mt-5 mb-2">Exact Record Found : </h6>
+        <table className="table table-hover">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Attribute</th>
+              <th scope="col">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {eachExactRecord.metaData.map((keyVal, index) => (
+              <tr key={index}>
+                <th scope="row">{index + 1}</th>
+                <td>{keyVal.key}</td>
+                {keyVal.key === "Download" ? (
+                  <td>
+                    <a href={keyVal.value} target="_blank">
+                      Click here
+                    </a>
+                  </td>
+                ) : (
+                  <td>{keyVal.value}</td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    ) : (
+      <h6>Exact match not found</h6>
+    );
+  }
+
   function renderSimilarRecords() {
-    return foundRecords.length > 0 ? (
+    return similarFoundRecords.length > 0 ? (
       <>
         <Button
           onClick={() => {
-            setFoundRecords([]);
+            setSimilarFoundRecords([]);
+            setRecordModalOpen(false);
           }}
           variant="outline-primary"
         >
@@ -275,7 +389,7 @@ export default function Home() {
         </Button>
 
         <h6 className="mt-5 mb-2">Similar Records Found : </h6>
-        {foundRecords.map((record, index) => (
+        {similarFoundRecords.map((record, index) => (
           <table key={index} className="table table-hover mb-5">
             <thead>
               <tr>
@@ -306,141 +420,453 @@ export default function Home() {
       </>
     ) : null;
   }
-  return (
-    <div className="file-upload">
-      <Toaster />
-      {[0, 1].map((index) => (
-        <div key={index} className="upload-section">
-          <div className="heading">{index == 0 ? "Upload" : "Verify"}</div>
 
-          <div className="scroll">
-            <button
-              className="file-upload-btn"
-              type="button"
-              onClick={() =>
-                document.querySelectorAll(".file-upload-input")[index].click()
-              }
-            >
-              Choose from media library
-            </button>
-            <div className="image-upload-wrap">
-              <input
-                hidden
-                className="file-upload-input"
-                type="file"
-                onChange={(e) => readURL(e.target, index)}
-                accept="video/*"
-              />
-              {previews[index] && (
-                <div className="video-preview">
-                  <video
-                    src={previews[index]}
-                    controls
-                    width="150"
-                    height="100"
-                  ></video>
-                  <button
-                    type="button"
-                    onClick={() => removeUpload(index)}
-                    className="remove-video"
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
-            </div>
-            {/* Key-Value Pair Section */}
-            {index == 0 && (
-              <span className="add-info-txt">
-                Add more information about your video
-              </span>
-            )}
-            {index == 0 &&
-              keyValuePairs.map((pair, idx) => (
-                <div key={idx} className="keyValuePairs">
-                  <button
-                    type="button"
-                    onClick={() => removeKeyValuePair(idx)}
-                    className="remove-button"
-                  >
-                    Remove
-                  </button>
-                  <input
-                    className="input-keyPair"
-                    type="text"
-                    placeholder="Attribute Name"
-                    value={pair.key || ""}
-                    onChange={(e) =>
-                      handleKeyValueChange(idx, "key", e.target.value)
-                    }
-                    // style={{ marginRight: "10px" }}
-                  />
-                  <input
-                    className="input-keyPair"
-                    type="text"
-                    placeholder="Attribute Value"
-                    value={pair.value || ""}
-                    onChange={(e) =>
-                      handleKeyValueChange(idx, "value", e.target.value)
-                    }
-                  />
-                </div>
+  function renderEachSimilarRecords(eachSimilarFoundRecords) {
+    return eachSimilarFoundRecords.length > 0 ? (
+      <>
+        <h6 className="mt-5 mb-2">Similar Records Found : </h6>
+        {eachSimilarFoundRecords.map((record, index) => (
+          <table key={index} className="table table-hover mb-5">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Attribute name</th>
+                <th scope="col">Attribute value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {record.metaData.map((keyVal, index) => (
+                <tr key={index}>
+                  <th scope="row">{index + 1}</th>
+                  <td>{keyVal.key}</td>
+                  {keyVal.key === "Download" ? (
+                    <td>
+                      <a href={keyVal.value} target="_blank">
+                        Click here
+                      </a>
+                    </td>
+                  ) : (
+                    <td>{keyVal.value}</td>
+                  )}
+                </tr>
               ))}
-            {index == 0 ? (
-              <div className="add-button-section">
+            </tbody>
+          </table>
+        ))}
+      </>
+    ) : (
+      <h6>Similar matches not found</h6>
+    );
+  }
+
+  async function uploadFileURL() {
+    setLoading(true);
+    console.log(files[0], "Uploading file", processedVideoName);
+
+    try {
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: JSON.stringify({
+          url: processURL ? processURL : originalURL,
+          metaData: [
+            ...keyValuePairs,
+            {
+              key: "FileName",
+              value: processedVideoName ? processedVideoName : files[0].name,
+            },
+          ],
+        }),
+      });
+      console.log(response, "response");
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Upload successful:", data);
+      toast("Video fingerprint generated & added to records");
+
+      removeUpload(0);
+      setKeyValuePairs([]);
+      setModalOpen(false);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error during upload:", error);
+      setLoading(false);
+    } finally {
+      setLoadingSubmit(false);
+    }
+  }
+  async function getVariants() {
+    try {
+      setLoadingVideoProcessing(true);
+      const response = await fetch("/api/process?getVariants=true");
+      const result = await response.json();
+      if (response.status === 200) {
+        toast(result.message);
+        setProcessedVideo(result.outputArray);
+      } else {
+        toast(result.message);
+      }
+    } catch (error) {
+      console.error(error);
+      toast("Something went wrong");
+    } finally {
+      setLoadingVideoProcessing(false);
+    }
+  }
+
+  async function getVerifications() {
+    try {
+      setIsVerificationsLoading(true);
+      const response = await fetch("/api/process?getVerifications=true");
+      const result = await response.json();
+      if (response.status === 200) {
+        toast(result.message);
+        if (result.verificationArr.length) {
+          setAllRecordsVerifiedModalOpen(true);
+          setAllRecordsVerified(result.verificationArr);
+        }
+      } else {
+        setAllRecordsVerifiedModalOpen(false);
+        setAllRecordsVerified([]);
+        toast(result.message);
+      }
+    } catch (error) {
+      console.error(error);
+      setAllRecordsVerifiedModalOpen(false);
+      setAllRecordsVerified([]);
+      toast("Something went wrong");
+    } finally {
+      setIsVerificationsLoading(false);
+    }
+  }
+
+  function reloadVideoVariantsAndShowResults() {
+    getVariants();
+    getVerifications();
+  }
+
+  async function verifyVideoURL(url) {
+    try {
+      const response = await fetch("/api/verify", {
+        method: "POST",
+        body: JSON.stringify({
+          url: url,
+        }),
+      });
+
+      const result = await response.json();
+      if (response.status === 200) {
+        console.log("Fingerprint found:", result);
+        if (result.similarRecords.length || result.exactMatchRecord) {
+          setSimilarFoundRecords(result.similarRecords);
+          setExactFoundRecord(result.exactMatchRecord);
+        } else {
+          setSimilarFoundRecords([]);
+          setExactFoundRecord(null);
+          setRecordModalOpen(false);
+        }
+        setIsVerificationsLoading(false);
+        toast(result.message);
+      } else {
+        setIsVerificationsLoading(false);
+        toast("No matching records found.");
+        setRecordModalOpen(false);
+      }
+    } catch (error) {
+      console.error("Error during verification:", error);
+      setIsVerificationsLoading(false);
+      setRecordModalOpen(false);
+      toast("Something went wrong");
+    } finally {
+      setLoadingVerify(false);
+    }
+  }
+
+  return (
+    <>
+      {/* Modal for all variants video verifications */}
+      <Modal
+        className="modal-container"
+        open={allRecordsVerifiedModalOpen}
+        onClose={() => {
+          setAllRecordsVerified([]);
+          setAllRecordsVerifiedModalOpen(false);
+        }}
+        aria-labelledby="modal-modal-title"
+        aria-describedby="modal-modal-description"
+      >
+        {isVerificationsLoading ? (
+          <CircularProgress />
+        ) : (
+          <div className="records-container">
+            <Button
+              onClick={() => {
+                setAllRecordsVerified([]);
+                setAllRecordsVerifiedModalOpen(false);
+              }}
+              variant="outline-primary"
+            >
+              Reset
+            </Button>
+
+            {allRecordsVerified.map((eachRecord, index) => (
+              <div className="p-2 w-100 bg-light border mt-3" key={index}>
+                <h4 className="p-2 text-capitalize">{eachRecord.fileName}</h4>
+                {renderEachExactRecord(eachRecord.exactMatchRecord)}
+                {renderEachSimilarRecords(eachRecord.similarRecords)}
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal for each single video verification */}
+      <Modal
+        className="modal-container"
+        open={recordModalOpen}
+        onClose={() => {
+          setRecordModalOpen(false);
+        }}
+        aria-labelledby="modal-modal-title"
+        aria-describedby="modal-modal-description"
+      >
+        {isVerificationsLoading ? (
+          <CircularProgress />
+        ) : (
+          <div className="records-container">
+            {renderExactRecord()}
+            {renderSimilarRecords()}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        className="modal-container"
+        open={modalOpen}
+        onClose={() => {
+          if (!loading) {
+            setModalOpen(false);
+            setKeyValuePairs([]);
+          }
+        }}
+        aria-labelledby="modal-modal-title"
+        aria-describedby="modal-modal-description"
+      >
+        <div
+          style={{
+            backgroundColor: "white",
+            width: "50%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          <h2>Add parameters</h2>
+          <div className="scroll">
+            {keyValuePairs.map((pair, idx) => (
+              <div key={idx} className="keyValuePairs">
+                <button
+                  type="button"
+                  onClick={() => removeKeyValuePair(idx)}
+                  className="remove-button"
+                >
+                  Remove
+                </button>
+                <input
+                  className="input-keyPair"
+                  type="text"
+                  placeholder="Attribute Name"
+                  value={pair.key || ""}
+                  onChange={(e) =>
+                    handleKeyValueChange(idx, "key", e.target.value)
+                  }
+                />
+                <input
+                  className="input-keyPair"
+                  type="text"
+                  placeholder="Attribute Value"
+                  value={pair.value || ""}
+                  onChange={(e) =>
+                    handleKeyValueChange(idx, "value", e.target.value)
+                  }
+                />
+              </div>
+            ))}
+          </div>
+          <div className="submit-button-section">
+            {loading ? (
+              <CircularProgress />
+            ) : (
+              <>
+                {keyValuePairs.length > 0 ? (
+                  <button onClick={uploadFileURL} className="submit-button">
+                    Upload File
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={addKeyValuePair}
-                  className="add-button"
+                  className="submit-button"
                 >
                   Add +
                 </button>
-              </div>
-            ) : null}{" "}
-            {index == 0 ? (
-              <div className="submit-button-section">
-                {loadingSubmit ? (
-                  <div className="loader-container">
-                    {progressPercentage == 0 ? null : (
-                      <div>{progressPercentage} %</div>
-                    )}
-                    <CircularProgress />
-                  </div>
-                ) : (
-                  <button
-                    className="submit-button"
-                    type="submit"
-                    onClick={handleSubmit}
-                  >
-                    Upload
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="submit-button-section">
-                {loadingVerify ? (
-                  <div className="loader-container">
-                    {progressPercentage == 0 ? null : (
-                      <div>{progressPercentage} %</div>
-                    )}
-                    <CircularProgress />
-                  </div>
-                ) : (
-                  <button
-                    className="submit-button"
-                    type="submit"
-                    onClick={verifySubmit}
-                  >
-                    Verify
-                  </button>
-                )}
-              </div>
+              </>
             )}
-            {index == 1 && renderExactRecord()}
-            {index == 1 && renderSimilarRecords()}
           </div>
         </div>
-      ))}
-    </div>
+      </Modal>
+      <div className="main-container">
+        <Toaster />
+        <div>
+          <button
+            className="file-upload-btn"
+            type="button"
+            onClick={() =>
+              document.querySelectorAll(".file-upload-input")[index].click()
+            }
+          >
+            {progressPercentage == 0 || progressPercentage == 100
+              ? "Choose a video from media library"
+              : progressPercentage + "% Uploading..."}
+          </button>
+
+          {originalURL ? (
+            <button
+              onClick={() => {
+                setProcessedVideo([]);
+                setOriginalURL(null);
+              }}
+              className="remove-video-button"
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
+        <input
+          hidden
+          className="file-upload-input"
+          type="file"
+          onChange={(e) => readURL(e.target, 0)}
+          accept="video/*"
+        />
+
+        {originalURL && (
+          <Card
+            style={{
+              padding: "10px",
+              width: "80%",
+              marginTop: "15px",
+              backgroundColor: "#f7fbff",
+            }}
+          >
+            <div className="video-section">
+              <div className="video-heading">Original Video</div>
+              <video width="220" height="210" controls>
+                <source src={originalURL} type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+              <div className="submit-button-section mb-2">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setModalOpen(true);
+                    setprocessURL(null);
+                  }}
+                >
+                  Upload
+                </button>
+                <button
+                  onClick={() => {
+                    verifyVideoURL(originalURL);
+                    setIsVerificationsLoading(true);
+                    setRecordModalOpen(true);
+                  }}
+                  className="btn btn-success mx-2"
+                >
+                  Verify
+                </button>
+
+                <button
+                  onClick={() => {
+                    getVideoURLWithParameters(files[0]);
+                  }}
+                  className="btn btn-secondary"
+                >
+                  Create & verify all variants
+                </button>
+              </div>
+            </div>
+            <div className="processed-videos-container">
+              <div
+                style={{
+                  margin: "10px",
+                  height: "100px",
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "flex-start",
+                }}
+              >
+                {loadingVideoProcessing ? (
+                  <CircularProgress />
+                ) : (
+                  <button
+                    className="btn btn-outline-success"
+                    onClick={reloadVideoVariantsAndShowResults}
+                  >
+                    Show all video variants and verification results
+                  </button>
+                )}
+              </div>
+              {processedVideo.length > 0 &&
+                processedVideo.map((res, index) => {
+                  return (
+                    <div key={index} className="processed-video-card">
+                      <div className="video-heading">
+                        {res?.filename || "processed video"}
+                      </div>
+                      <video width="220" height="210" controls>
+                        <source src={res?.url} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                      <div className="submit-button-section">
+                        <button
+                          className="submit-button"
+                          onClick={() => {
+                            setModalOpen(true);
+                            setprocessURL(res.url);
+                            setProcessedVideoName(res.filename);
+                          }}
+                        >
+                          Upload
+                        </button>
+                        <button
+                          onClick={() => {
+                            verifyVideoURL(res.url);
+                            setIsVerificationsLoading(true);
+                            setRecordModalOpen(true);
+                          }}
+                          className="submit-button"
+                        >
+                          Verify
+                        </button>
+                        <button
+                          className="submit-button"
+                          onClick={() => {
+                            window.open(res.url);
+                          }}
+                        >
+                          Download
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </Card>
+        )}
+      </div>
+    </>
   );
 }

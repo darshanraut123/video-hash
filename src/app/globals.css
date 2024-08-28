@@ -42,7 +42,8 @@ body {
   }
 
   .file-upload-btn {
-    width: 100%;
+    /* width: 15%; */
+    height: auto;
     margin: 0;
     color: #fff;
     background: #1fb264;
@@ -101,7 +102,7 @@ body {
   }
 
   .scroll {
-    max-height: 90%;
+    max-height: 200px;
     overflow: auto;
     scrollbar-width: thin;
     scrollbar-color: #888 #fff;
@@ -184,7 +185,7 @@ body {
   .submit-button {
     background-color: #0070f3;
     color: white;
-    padding: 10px 20px;
+    padding: 0px 5px;
     border: none;
     border-radius: 5px;
     cursor: pointer;
@@ -192,6 +193,7 @@ body {
     transition: background-color 0.3s ease;
     display: flex;
     justify-content: center;
+    margin: 5px;
   }
 
   .submit-button:hover {
@@ -245,22 +247,6 @@ body {
     color: #575454;
   }
 
-  .add-button-section {
-    display: flex;
-    justify-content: flex-end;
-    margin: 10px;
-  }
-
-  .add-button {
-    background-color: #42abce;
-    padding: 10px;
-    border-radius: 10px;
-  }
-
-  .add-button:hover {
-    background-color: #053a4b;
-  }
-
   .row {
     text-transform: capitalize;
   }
@@ -272,4 +258,90 @@ body {
     height: 100px;
     flex-direction: column;
   }
+
+  .video-heading {
+    font-weight: bold;
+    margin: 5px;
+  }
+
+  .modal-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+
+  }
+
+  .records-container {
+    background-color: white;
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    border-radius: 10px;
+    max-height: 400px;
+    overflow: scroll;
+  }
+
+  .modal-content {
+    background-color: white;
+    width: 30%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .main-container {
+    padding: 10px;
+    margin: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .remove-video-button {
+    background-color: red;
+    color: white;
+    border-radius: 5px;
+    padding: 10px;
+    margin-left: 10px;
+  }
+
+  .card-container {
+    padding: 10px;
+    width: 80%;
+    margin-top: 15px;
+    background-color: red;
+  }
+
+  .video-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .processed-videos-container {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-top: 1px solid black;
+  }
+
+  .processed-video-card {
+    margin: 15px;
+  }
+
+  .add-button-section {
+    margin-top: 10px;
+  }
+
+  .input-keyPair {
+    margin: 5px;
+  }
+
+  .remove-button {
+    margin-right: 10px;
+  }
+
 }
