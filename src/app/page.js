@@ -14,7 +14,7 @@ export default function Home() {
   const [keyValuePairs, setKeyValuePairs] = useState([]); // State to hold key-value pairs
   const [loadingSubmit, setLoadingSubmit] = useState(false); // State to hold
   const [loadingVerify, setLoadingVerify] = useState(false); // State to hold
-  const [foundRecords, setFoundRecords] = useState([]);
+  const [similarFoundRecords, setSimilarFoundRecords] = useState([]);
   const [exactFoundRecord, setExactFoundRecord] = useState(null);
   const [progressPercentage, setProgressPercentage] = useState(0);
   const [originalURL, setOriginalURL] = useState(null);
@@ -23,9 +23,12 @@ export default function Home() {
   const [processedVideo, setProcessedVideo] = useState([]);
   const [processedVideoName, setProcessedVideoName] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [verifyloading, setVerifyloading] = useState(false);
+  const [isVerificationsLoading, setIsVerificationsLoading] = useState(false);
   const [recordModalOpen, setRecordModalOpen] = useState(false);
+  const [allRecordsVerifiedModalOpen, setAllRecordsVerifiedModalOpen] =
+    useState(false);
   const [loadingVideoProcessing, setLoadingVideoProcessing] = useState(false);
+  const [allRecordsVerified, setAllRecordsVerified] = useState([]);
 
   const uploadVideoUrl = "http://localhost:8080/upload-video";
   const verifyVideoUrl = "http://localhost:8080/verify-similarity";
@@ -65,7 +68,8 @@ export default function Home() {
       const result = await response.json();
       if (result.success) {
         console.log("file", result);
-        setProcessedVideo(result.response);
+        toast(result.message);
+        // setProcessedVideo(result.response);
       } else {
         setLoadingVideoProcessing(false);
         throw new Error(result.error);
@@ -200,7 +204,7 @@ export default function Home() {
   }
 
   async function verifyVideo(url) {
-    setFoundRecords([]);
+    setSimilarFoundRecords([]);
     setExactFoundRecord(null);
 
     const file = files[1];
@@ -249,7 +253,7 @@ export default function Home() {
             if (response.status === 200) {
               console.log("Fingerprint found:", result);
               toast(result.message);
-              setFoundRecords(result.similarRecords);
+              setSimilarFoundRecords(result.similarRecords);
               setExactFoundRecord(result.exactMatchRecord);
             } else if (response.status === 404) {
               toast("No matching records found.");
@@ -335,12 +339,48 @@ export default function Home() {
     ) : null;
   }
 
+  function renderEachExactRecord(eachExactRecord) {
+    return eachExactRecord ? (
+      <>
+        <h6 className="mt-5 mb-2">Exact Record Found : </h6>
+        <table className="table table-hover">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Attribute</th>
+              <th scope="col">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {eachExactRecord.metaData.map((keyVal, index) => (
+              <tr key={index}>
+                <th scope="row">{index + 1}</th>
+                <td>{keyVal.key}</td>
+                {keyVal.key === "Download" ? (
+                  <td>
+                    <a href={keyVal.value} target="_blank">
+                      Click here
+                    </a>
+                  </td>
+                ) : (
+                  <td>{keyVal.value}</td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    ) : (
+      <h6>Exact match not found</h6>
+    );
+  }
+
   function renderSimilarRecords() {
-    return foundRecords.length > 0 ? (
+    return similarFoundRecords.length > 0 ? (
       <>
         <Button
           onClick={() => {
-            setFoundRecords([]);
+            setSimilarFoundRecords([]);
             setRecordModalOpen(false);
           }}
           variant="outline-primary"
@@ -349,7 +389,7 @@ export default function Home() {
         </Button>
 
         <h6 className="mt-5 mb-2">Similar Records Found : </h6>
-        {foundRecords.map((record, index) => (
+        {similarFoundRecords.map((record, index) => (
           <table key={index} className="table table-hover mb-5">
             <thead>
               <tr>
@@ -380,6 +420,45 @@ export default function Home() {
       </>
     ) : null;
   }
+
+  function renderEachSimilarRecords(eachSimilarFoundRecords) {
+    return eachSimilarFoundRecords.length > 0 ? (
+      <>
+        <h6 className="mt-5 mb-2">Similar Records Found : </h6>
+        {eachSimilarFoundRecords.map((record, index) => (
+          <table key={index} className="table table-hover mb-5">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Attribute name</th>
+                <th scope="col">Attribute value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {record.metaData.map((keyVal, index) => (
+                <tr key={index}>
+                  <th scope="row">{index + 1}</th>
+                  <td>{keyVal.key}</td>
+                  {keyVal.key === "Download" ? (
+                    <td>
+                      <a href={keyVal.value} target="_blank">
+                        Click here
+                      </a>
+                    </td>
+                  ) : (
+                    <td>{keyVal.value}</td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ))}
+      </>
+    ) : (
+      <h6>Similar matches not found</h6>
+    );
+  }
+
   async function uploadFileURL() {
     setLoading(true);
     console.log(files[0], "Uploading file", processedVideoName);
@@ -418,6 +497,56 @@ export default function Home() {
       setLoadingSubmit(false);
     }
   }
+  async function getVariants() {
+    try {
+      setLoadingVideoProcessing(true);
+      const response = await fetch("/api/process?getVariants=true");
+      const result = await response.json();
+      if (response.status === 200) {
+        toast(result.message);
+        setProcessedVideo(result.outputArray);
+      } else {
+        toast(result.message);
+      }
+    } catch (error) {
+      console.error(error);
+      toast("Something went wrong");
+    } finally {
+      setLoadingVideoProcessing(false);
+    }
+  }
+
+  async function getVerifications() {
+    try {
+      setIsVerificationsLoading(true);
+      const response = await fetch("/api/process?getVerifications=true");
+      const result = await response.json();
+      if (response.status === 200) {
+        toast(result.message);
+        if (result.verificationArr.length) {
+          setAllRecordsVerifiedModalOpen(true);
+          setAllRecordsVerified(result.verificationArr);
+        }
+      } else {
+        setAllRecordsVerifiedModalOpen(false);
+        setAllRecordsVerified([]);
+        toast(result.message);
+      }
+    } catch (error) {
+      console.error(error);
+      setAllRecordsVerifiedModalOpen(false);
+      setAllRecordsVerified([]);
+      toast("Something went wrong");
+    } finally {
+      setIsVerificationsLoading(false);
+    }
+  }
+
+  function reloadVideoVariantsAndShowResults() {
+    getVariants();
+    getVerifications();
+  }
+
   async function verifyVideoURL(url) {
     try {
       const response = await fetch("/api/verify", {
@@ -427,39 +556,73 @@ export default function Home() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Verification failed: ${response.statusText}`);
-      }
-
       const result = await response.json();
       if (response.status === 200) {
         console.log("Fingerprint found:", result);
         if (result.similarRecords.length || result.exactMatchRecord) {
-          setFoundRecords(result.similarRecords);
+          setSimilarFoundRecords(result.similarRecords);
           setExactFoundRecord(result.exactMatchRecord);
         } else {
-          setFoundRecords([]);
+          setSimilarFoundRecords([]);
           setExactFoundRecord(null);
           setRecordModalOpen(false);
         }
-        setVerifyloading(false);
+        setIsVerificationsLoading(false);
         toast(result.message);
-      } else if (response.status === 404) {
-        setVerifyloading(false);
+      } else {
+        setIsVerificationsLoading(false);
         toast("No matching records found.");
         setRecordModalOpen(false);
       }
     } catch (error) {
       console.error("Error during verification:", error);
-      setVerifyloading(false);
+      setIsVerificationsLoading(false);
       setRecordModalOpen(false);
       toast("Something went wrong");
     } finally {
       setLoadingVerify(false);
     }
   }
+
   return (
     <>
+      {/* Modal for all variants video verifications */}
+      <Modal
+        className="modal-container"
+        open={allRecordsVerifiedModalOpen}
+        onClose={() => {
+          setAllRecordsVerified([]);
+          setAllRecordsVerifiedModalOpen(false);
+        }}
+        aria-labelledby="modal-modal-title"
+        aria-describedby="modal-modal-description"
+      >
+        {isVerificationsLoading ? (
+          <CircularProgress />
+        ) : (
+          <div className="records-container">
+            <Button
+              onClick={() => {
+                setAllRecordsVerified([]);
+                setAllRecordsVerifiedModalOpen(false);
+              }}
+              variant="outline-primary"
+            >
+              Reset
+            </Button>
+
+            {allRecordsVerified.map((eachRecord, index) => (
+              <div className="p-2 w-100 bg-light border mt-3" key={index}>
+                <h4 className="p-2 text-capitalize">{eachRecord.fileName}</h4>
+                {renderEachExactRecord(eachRecord.exactMatchRecord)}
+                {renderEachSimilarRecords(eachRecord.similarRecords)}
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal for each single video verification */}
       <Modal
         className="modal-container"
         open={recordModalOpen}
@@ -469,27 +632,16 @@ export default function Home() {
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
       >
-        {verifyloading ? (
+        {isVerificationsLoading ? (
           <CircularProgress />
         ) : (
-          <div
-            style={{
-              backgroundColor: "white",
-              width: "50%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              padding: "20px",
-              borderRadius: "10px",
-              maxHeight: "400px",
-              overflow: "scroll",
-            }}
-          >
+          <div className="records-container">
             {renderExactRecord()}
             {renderSimilarRecords()}
           </div>
         )}
       </Modal>
+
       <Modal
         className="modal-container"
         open={modalOpen}
@@ -628,7 +780,7 @@ export default function Home() {
                 <button
                   onClick={() => {
                     verifyVideoURL(originalURL);
-                    setVerifyloading(true);
+                    setIsVerificationsLoading(true);
                     setRecordModalOpen(true);
                   }}
                   className="btn btn-success mx-2"
@@ -642,39 +794,31 @@ export default function Home() {
                   }}
                   className="btn btn-secondary"
                 >
-                  Create Variants
+                  Create & verify all variants
                 </button>
               </div>
             </div>
             <div className="processed-videos-container">
-              {loadingVideoProcessing && (
-                <div
-                  style={{
-                    margin: "10px",
-                    height: "100px",
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    flexDirection: "column",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-evenly",
-                      alignItems: "center",
-                      flexDirection: "column",
-                    }}
+              <div
+                style={{
+                  margin: "10px",
+                  height: "100px",
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "flex-start",
+                }}
+              >
+                {loadingVideoProcessing ? (
+                  <CircularProgress />
+                ) : (
+                  <button
+                    className="btn btn-outline-success"
+                    onClick={reloadVideoVariantsAndShowResults}
                   >
-                    <div>Processing...</div>
-                    <div>
-                      Creating multiple variants of video file, it might take
-                      some time.
-                    </div>
-                    <CircularProgress />
-                  </div>
-                </div>
-              )}
+                    Show all video variants and verification results
+                  </button>
+                )}
+              </div>
               {processedVideo.length > 0 &&
                 processedVideo.map((res, index) => {
                   return (
@@ -700,7 +844,7 @@ export default function Home() {
                         <button
                           onClick={() => {
                             verifyVideoURL(res.url);
-                            setVerifyloading(true);
+                            setIsVerificationsLoading(true);
                             setRecordModalOpen(true);
                           }}
                           className="submit-button"

@@ -6,8 +6,15 @@ import ffmpegStatic from "ffmpeg-static";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../../src/config";
 import { promisify } from "util";
+import { MongoClient } from "mongodb";
 
 ffmpeg.setFfmpegPath(ffmpegStatic);
+
+const uri =
+  "mongodb+srv://darshanraut123:darshanraut123@cluster0.blxpgv4.mongodb.net/";
+const client = new MongoClient(uri);
+client.connect();
+const database = client.db("video-hash"); // Replace with your database name
 
 const parameters = [
   [
@@ -57,40 +64,78 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res
-      .status(405)
-      .json({ error: `Method '${req.method}' Not Allowed` });
-  }
-
-  //   fs.rmSync("uploads/", { recursive: true, force: true });
-
-  // Set up Multer
-  const upload = multer({ dest: "uploads/" });
-  const uploadSingle = promisify(upload.single("video"));
-
-  try {
-    // Await the execution of multer middleware
-    await uploadSingle(req, res);
-
-    // At this point, multer has processed the file, and it's available via req.file
-    if (!req.file) {
-      return res
-        .status(400)
-        .json({ success: false, error: "No file uploaded." });
+  if (req.method === "GET") {
+    try {
+      const { getVariants, getVerifications } = req.query;
+      if (getVariants) {
+        const collection = database.collection("variants");
+        let variantsObject = await collection.findOne({
+          createdAt: { $lte: new Date() },
+        });
+        if (variantsObject?.outputArray.length) {
+          variantsObject.message = "Variants fetched";
+        } else {
+          variantsObject = {
+            outputArray: [],
+            message: "Processing videos please wait.",
+          };
+        }
+        res.status(200).json(variantsObject);
+      } else if (getVerifications) {
+        const collection = database.collection("verifications");
+        let verificationObject = await collection.findOne({
+          createdAt: { $lte: new Date() },
+        });
+        if (verificationObject?.verificationArr.length) {
+          verificationObject.message = "Verifications fetch success.";
+        } else {
+          verificationObject = {
+            verificationArr: [],
+            message: "Processing results please wait.",
+          };
+        }
+        res.status(200).json(verificationObject);
+      }
+    } catch (err) {
+      console.log(err);
+      res
+        .status(500)
+        .json({ outputArray: [], message: "Something went wrong" });
     }
+  } else if (req.method === "POST") {
+    res.status(200).json({
+      success: true,
+      response: [],
+      message:
+        "Creating variants in background, results will be visible once process is completed.",
+    });
 
-    const outputArray = await processVideo(
-      req.file,
-      parameters,
-      parameterDescriptions
-    );
+    let collection = database.collection("verifications");
+    collection.deleteMany({});
+    collection = database.collection("variants");
+    collection.deleteMany({});
 
-    res.status(200).json({ success: true, response: outputArray });
-  } catch (err) {
-    // This will catch any error thrown by Multer or the processVideo function
-    res.status(500).json({ success: false, error: err.message });
-  }
+    // Set up Multer
+    const upload = multer({ dest: "uploads/" });
+    const uploadSingle = promisify(upload.single("video"));
+
+    try {
+      // Await the execution of multer middleware
+      await uploadSingle(req, res);
+
+      // At this point, multer has processed the file, and it's available via req.file
+      if (!req.file) {
+        return res
+          .status(400)
+          .json({ success: false, error: "No file uploaded." });
+      }
+
+      await processVideo(req.file, parameters, parameterDescriptions);
+    } catch (err) {
+      // This will catch any error thrown by Multer or the processVideo function
+      console.log(err);
+    }
+  } else res.status(405).json({ error: `Method '${req.method}' Not Allowed` });
 }
 
 async function processVideo(file, parameters, parameterDescriptions) {
@@ -140,7 +185,14 @@ async function processVideo(file, parameters, parameterDescriptions) {
       console.error(`Error processing ${description}: ${error.message}`);
     }
   }
-  return outputArray;
+
+  const collection = database.collection("variants");
+  collection.deleteMany({});
+  const saveObject = { createdAt: new Date(), outputArray };
+  collection.insertOne(saveObject);
+  console.log("Saved Variants Object==> " + JSON.stringify(saveObject));
+  console.log("Now starting to verify all variants");
+  await verifyAllVariantsAndSave2DB(outputArray);
 }
 
 function processWithFFmpeg(filePath, option, outputPath) {
@@ -163,4 +215,36 @@ async function uploadToFirebase(originalName, description, filePath, ext) {
   const url = await getDownloadURL(storageRef);
   fs.unlinkSync(filePath);
   return url;
+}
+
+async function verifyAllVariantsAndSave2DB(urlObjArr) {
+  let verificationArr = [];
+  for (let i = 0; i < urlObjArr.length; i++) {
+    const response = await fetch("http://localhost:4000/api/verify", {
+      method: "POST",
+      body: JSON.stringify({
+        url: urlObjArr[i].url,
+      }),
+    });
+
+    if (response.status === 200) {
+      const result = await response.json();
+      result.fileName = urlObjArr[i].url
+        .split("?")[0]
+        .split("/")
+        .pop()
+        .split("%2F")
+        .pop();
+      console.log(result);
+      verificationArr.push(result);
+    }
+  }
+  const collection = database.collection("verifications");
+  const saveObject = {
+    createdAt: new Date(),
+    verificationArr,
+  };
+  collection.deleteMany({});
+  collection.insertOne(saveObject);
+  console.log("Saved Variants Object==> " + JSON.stringify(saveObject));
 }
