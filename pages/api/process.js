@@ -167,7 +167,7 @@ async function processVideo(file, parameters, parameterDescriptions) {
     description;
     const outputPath = path.join(
       process.cwd(),
-      "public",
+      "uploads",
       `${description}_${basename}${ext}`
     );
 

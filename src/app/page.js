@@ -613,7 +613,9 @@ export default function Home() {
 
             {allRecordsVerified.map((eachRecord, index) => (
               <div className="p-2 w-100 bg-light border mt-3" key={index}>
-                <h4 className="p-2 text-capitalize">{eachRecord.fileName}</h4>
+                <h4 className="p-2 text-capitalize">{`${index + 1} ${
+                  eachRecord.fileName
+                }`}</h4>
                 {renderEachExactRecord(eachRecord.exactMatchRecord)}
                 {renderEachSimilarRecords(eachRecord.similarRecords)}
               </div>
