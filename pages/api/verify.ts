@@ -23,6 +23,24 @@ const handler = async (req, res) => {
     const sourceHash = data.hash;
     console.log("sourceHash ===> " + sourceHash);
 
+    const newHashUrl = "https://rrdemo.buzzybrains.net/vpdq/generate_hashes";
+
+    let Videourl = JSON.parse(req.body);
+    console.log(Videourl.url, "urlll");
+    const reqData = {
+      video_url: Videourl.url,
+    };
+
+    const Hashresponse = await fetch(newHashUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(reqData),
+    });
+    const Hashesdata = await Hashresponse.json();
+    console.log(Hashesdata, "hash verify");
+
     const pipeline = [
       {
         $addFields: {
@@ -77,22 +95,82 @@ const handler = async (req, res) => {
         const query = { fingerprint: { $in: similarHashesArr } };
         let similarRecords = await collection.find(query).toArray();
 
-        similarRecords = similarRecords.map((rec) => {
-          const similarHashesSingleObject: any = result.find(
-            (item) => item.fingerprint === rec.fingerprint
-          );
-          return {
-            ...rec,
-            metaData: [
-              ...rec.metaData,
-              {
-                key: "Hamming Distance",
-                value: similarHashesSingleObject.hammingDistance,
-              },
-            ],
-          };
-        });
+        similarRecords = await Promise.all(
+          similarRecords.map(async (rec) => {
+            const similarHashesSingleObject: any = result.find(
+              (item) => item.fingerprint === rec.fingerprint
+            );
 
+            console.log(
+              similarHashesSingleObject,
+              "similarHashesSingleObject",
+              typeof similarHashesSingleObject
+            );
+            let responseData: any = null;
+            if (similarHashesSingleObject.hasOwnProperty("hashes")) {
+              const url = "https://rrdemo.buzzybrains.net/vpdq/compare_hashes";
+              const subscriptionKey = "8de99f71e2264c6cb1d567bd9d2864a2";
+              const reqBody = {
+                hashes1: Hashesdata.hashes,
+                hashes2: JSON.parse(similarHashesSingleObject.hashes),
+              };
+              console.log(
+                reqBody,
+                "re body",
+                JSON.parse(similarHashesSingleObject.hashes)
+              );
+              try {
+                const response = await fetch(url, {
+                  method: "POST",
+                  headers: {
+                    "Ocp-Apim-Subscription-Key": subscriptionKey,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(reqBody),
+                });
+
+                // if (!response.ok) {
+                //   throw new Error(`HTTP error! status: ${response.status}`);
+                // }
+
+                responseData = await response.json();
+                console.log("Response Data:verifed new 2 hash", responseData);
+              } catch (error) {
+                console.error("Error:verifed new 2 hash", error);
+              }
+              // console.log(VerificationHashdata,"verifed new 2 hash")
+            } else {
+              console.log(
+                similarHashesSingleObject,
+                "similarHashesSingleObject no hash"
+              );
+            }
+
+            return {
+              ...rec,
+              metaData: [
+                ...rec.metaData,
+                {
+                  key: "Hamming Distance",
+                  value: similarHashesSingleObject.hammingDistance,
+                },
+                {
+                  key: " query match",
+                  value: responseData
+                    ? responseData.query_match_percentage
+                    : "NA",
+                },
+                {
+                  key: " Target match",
+                  value: responseData
+                    ? responseData.target_match_percentage
+                    : "NA",
+                },
+              ],
+              hashPercentage: responseData ? responseData : "NA",
+            };
+          })
+        );
         // Find exact hash
         const exactMatch = result.find((item) => item.hammingDistance === 0);
 
@@ -106,7 +184,16 @@ const handler = async (req, res) => {
             metaData: [
               ...exactMatchRecord.metaData,
               { key: "Hamming Distance", value: 0 },
+              {
+                key: " query match",
+                value: 100,
+              },
+              {
+                key: " Target match",
+                value: 100,
+              },
             ],
+            hashPercentage: 100,
           };
         }
 

@@ -19,9 +19,28 @@ const handler = async (req, res) => {
       },
       body,
     });
+    const newHashUrl = "https://rrdemo.buzzybrains.net/vpdq/generate_hashes";
+
+    let Videourl = JSON.parse(req.body);
+    console.log(Videourl.url, "urlll");
+    const reqData = {
+      video_url: Videourl.url,
+    };
+
+    const Hashresponse = await fetch(newHashUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(reqData),
+    });
+    const Hashesdata = await Hashresponse.json();
+    console.log(Hashesdata, "hash");
+
     const data = await response.json();
 
     // Connect to MongoDB
+
     await client.connect();
     const database = client.db("video-hash"); // Replace with your database name
     const collection = database.collection("videos");
@@ -30,6 +49,7 @@ const handler = async (req, res) => {
     // Insert the fingerprint and JSON data into the collection
     const result = await collection.insertOne({
       fingerprint: data.hash,
+      hashes: JSON.stringify(Hashesdata.hashes),
       metaData: [
         ...bodyObj.metaData,
         {
