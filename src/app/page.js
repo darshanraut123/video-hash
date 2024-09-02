@@ -29,7 +29,7 @@ export default function Home() {
     useState(false);
   const [loadingVideoProcessing, setLoadingVideoProcessing] = useState(false);
   const [allRecordsVerified, setAllRecordsVerified] = useState([]);
-
+  const [activeTab, setActiveTab] = useState('exact'); 
   const uploadVideoUrl = "http://localhost:8080/upload-video";
   const verifyVideoUrl = "http://localhost:8080/verify-similarity";
 
@@ -336,7 +336,7 @@ export default function Home() {
           </tbody>
         </table>
       </>
-    ) : null;
+    ) : <div style={{textAlign:'center'}}>No Records Found</div>;
   }
 
   function renderEachExactRecord(eachExactRecord) {
@@ -389,36 +389,37 @@ export default function Home() {
         </Button>
 
         <h6 className="mt-5 mb-2">Similar Records Found : </h6>
-        {similarFoundRecords.map((record, index) => (
-          <table key={index} className="table table-hover mb-5">
-            <thead>
-              <tr>
-                <th scope="col">#</th>
-                <th scope="col">Attribute name</th>
-                <th scope="col">Attribute value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {record.metaData.map((keyVal, index) => (
-                <tr key={index}>
-                  <th scope="row">{index + 1}</th>
-                  <td>{keyVal.key}</td>
-                  {keyVal.key === "Download" ? (
-                    <td>
-                      <a href={keyVal.value} target="_blank">
-                        Click here
-                      </a>
-                    </td>
-                  ) : (
-                    <td>{keyVal.value}</td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+<table className="table table-hover mb-5">
+  <thead>
+    <tr>
+      <th scope="col">Sr.No</th>
+      {similarFoundRecords[0].metaData.map((keyVal, index) => (
+        <th scope="col" key={index}>{keyVal.key}</th>
+      ))}
+    </tr>
+  </thead>
+  <tbody>
+    {similarFoundRecords.map((record, recordIndex) => (
+      <tr key={recordIndex}>
+        <th scope="row">{recordIndex + 1}</th>
+        {record.metaData.map((keyVal, index) => (
+          <td key={index}>
+            {keyVal.key === "Download" ? (
+              <a href={keyVal.value} target="_blank" rel="noopener noreferrer">
+                Click here
+              </a>
+            ) : (
+              keyVal.value
+            )}
+          </td>
         ))}
+      </tr>
+    ))}
+  </tbody>
+</table>
+
       </>
-    ) : null;
+    ) : <div style={{textAlign:'center'}}>No Records Found</div>;
   }
 
   function renderEachSimilarRecords(eachSimilarFoundRecords) {
@@ -635,10 +636,26 @@ export default function Home() {
         {isVerificationsLoading ? (
           <CircularProgress />
         ) : (
-          <div className="records-container">
-            {renderExactRecord()}
-            {renderSimilarRecords()}
+          <div className="tabs-container">
+          <div className="tabs-header">
+            <button
+              className={`tab-button ${activeTab === 'exact' ? 'active' : ''}`}
+              onClick={() => setActiveTab('exact')}
+            >
+              Exact Record
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'similar' ? 'active' : ''}`}
+              onClick={() => setActiveTab('similar')}
+            >
+              Similar Records
+            </button>
           </div>
+          <div className="tabs-content">
+            {activeTab === 'exact' && renderExactRecord()}
+            {activeTab === 'similar' && renderSimilarRecords()}
+          </div>
+        </div>
         )}
       </Modal>
 
