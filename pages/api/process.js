@@ -2,6 +2,7 @@ import multer from "multer";
 import ffmpeg from "fluent-ffmpeg";
 import path from "path";
 import fs from "fs";
+import os from "os";
 import ffmpegStatic from "ffmpeg-static";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../../src/config";
@@ -10,6 +11,7 @@ import { MongoClient } from "mongodb";
 
 ffmpeg.setFfmpegPath(ffmpegStatic);
 
+const tempFDirPath = os.tmpdir();
 const uri =
   "mongodb+srv://darshanraut123:darshanraut123@cluster0.blxpgv4.mongodb.net/";
 const client = new MongoClient(uri);
@@ -116,7 +118,7 @@ export default async function handler(req, res) {
     collection.deleteMany({});
 
     // Set up Multer
-    const upload = multer({ dest: "uploads/" });
+    const upload = multer({ dest: tempFDirPath });
     const uploadSingle = promisify(upload.single("video"));
 
     try {
@@ -166,8 +168,7 @@ async function processVideo(file, parameters, parameterDescriptions) {
 
     description;
     const outputPath = path.join(
-      process.cwd(),
-      "public",
+      tempFDirPath,
       `${description}_${basename}${ext}`
     );
 
