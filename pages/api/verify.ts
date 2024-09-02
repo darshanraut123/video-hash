@@ -155,17 +155,12 @@ const handler = async (req, res) => {
                   value: similarHashesSingleObject.hammingDistance,
                 },
                 {
-                  key: " query match",
+                  key: "Facebook VPDQ",
                   value: responseData
-                    ? responseData.query_match_percentage
+                    ? `${responseData.query_match_percentage.toFixed(2)}%` 
                     : "NA",
                 },
-                {
-                  key: " Target match",
-                  value: responseData
-                    ? responseData.target_match_percentage
-                    : "NA",
-                },
+                
               ],
               hashPercentage: responseData ? responseData : "NA",
             };
@@ -185,13 +180,10 @@ const handler = async (req, res) => {
               ...exactMatchRecord.metaData,
               { key: "Hamming Distance", value: 0 },
               {
-                key: " query match",
-                value: 100,
+                key: " Facebook VPDQ",
+                value: "100%",
               },
-              {
-                key: " Target match",
-                value: 100,
-              },
+              
             ],
             hashPercentage: 100,
           };
