@@ -94,8 +94,7 @@ export default async function handler(req, res) {
         } else {
           verificationObject = {
             verificationArr: [],
-            message:
-              "Click create & verify all variants button, if already did then please wait.",
+            message: "This might take some time. Please wait.",
           };
         }
         res.status(200).json(verificationObject);
