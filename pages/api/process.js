@@ -79,7 +79,8 @@ export default async function handler(req, res) {
         } else {
           variantsObject = {
             outputArray: [],
-            message: "Processing videos please wait.",
+            message:
+              "Click create & verify all variants button, if already did then please wait.",
           };
         }
         res.status(200).json(variantsObject);
@@ -93,7 +94,7 @@ export default async function handler(req, res) {
         } else {
           verificationObject = {
             verificationArr: [],
-            message: "Processing results please wait.",
+            message: "This might take some time. Please wait.",
           };
         }
         res.status(200).json(verificationObject);

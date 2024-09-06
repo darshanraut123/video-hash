@@ -11,10 +11,13 @@
   "dependencies": {
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
+    "@ffmpeg/core": "^0.10.0",
+    "@ffmpeg/ffmpeg": "^0.10.1",
     "@mui/material": "^5.16.7",
     "@nextui-org/spinner": "^2.0.33",
     "@nextui-org/system": "^2.2.5",
     "@nextui-org/theme": "^2.2.9",
+    "blob-util": "^2.0.2",
     "bootstrap": "^5.3.3",
     "ffmpeg-static": "^5.2.0",
     "file-saver": "^2.0.5",
