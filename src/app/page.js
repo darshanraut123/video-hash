@@ -7,6 +7,7 @@ import { Button } from "react-bootstrap";
 import { storage } from "../config";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 import { Box, Card, Modal } from "@mui/material";
+import * as XLSX from "xlsx";
 const index = 0;
 export default function Home() {
   const [files, setFiles] = useState([null, null]); // State to hold two video files
@@ -30,6 +31,7 @@ export default function Home() {
   const [loadingVideoProcessing, setLoadingVideoProcessing] = useState(false);
   const [allRecordsVerified, setAllRecordsVerified] = useState([]);
   const [activeTab, setActiveTab] = useState("exact");
+  const [downloadLink, setDownloadLink] = useState("");
   const uploadVideoUrl = "http://localhost:8080/upload-video";
   const verifyVideoUrl = "http://localhost:8080/verify-similarity";
 
@@ -547,6 +549,7 @@ export default function Home() {
         toast(result.message);
         if (result.verificationArr.length) {
           setAllRecordsVerifiedModalOpen(true);
+          convertDataToExcel(result.verificationArr);
           setAllRecordsVerified(result.verificationArr);
         }
       } else {
@@ -606,6 +609,70 @@ export default function Home() {
     }
   }
 
+  function getNestedData(data, key) {
+    const item = data.find((entry) => entry.key === key);
+    return item ? item.value : null;
+  }
+
+  const convertDataToExcel = (data) => {
+    // Process data
+    console.log(data, "data");
+    const excelData = data.map((item) => ({
+      fileName: item.fileName,
+      similarRecordsCount: item.similarRecords.length,
+      exactMatch: item.exactMatchRecord ? "Yes" : "No",
+      fingerprint: item.exactMatchRecord
+        ? item.exactMatchRecord.fingerprint
+        : "NA",
+      uploadedAt: item.exactMatchRecord
+        ? item.exactMatchRecord.uploadedAt
+        : "NA",
+      Hashes: item.exactMatchRecord ? item.exactMatchRecord.hashes : "NA",
+      hamming_distance: item.exactMatchRecord
+        ? getNestedData(item.exactMatchRecord.metaData, "Hamming Distance")
+        : "NA",
+      Firebase_Id: item.exactMatchRecord
+        ? getNestedData(item.exactMatchRecord.metaData, "Download")
+        : "NA",
+      Facebook_VPDQ: item.exactMatchRecord ? "100%" : "NA",
+    }));
+
+    const similarRecordsData = data.flatMap((item) =>
+      item.similarRecords.length > 0
+        ? item.similarRecords.map((record) => ({
+            fileName: item.fileName,
+            similarFileName: record.fileName,
+            Facebook_VPDQ: getNestedData(record.metaData, "Facebook VPDQ"),
+            similarFingerprint: record.fingerprint,
+            similarUploadedAt: record.uploadedAt,
+            similarHash: record.hashes,
+            similarHammingDistance: getNestedData(
+              record.metaData,
+              "Hamming Distance"
+            ),
+            similarFirebaseId: getNestedData(record.metaData, "Download"),
+          }))
+        : []
+    );
+    // Create a worksheet
+    const ws1 = XLSX.utils.json_to_sheet(excelData);
+
+    // Create a workbook and add the worksheet
+    const wb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(wb, ws1, "Records");
+    if (similarRecordsData.length > 0) {
+      const ws2 = XLSX.utils.json_to_sheet(similarRecordsData);
+      XLSX.utils.book_append_sheet(wb, ws2, "Similar Records");
+    }
+    // Generate Excel file and create a blob URL
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+
+    setDownloadLink(url);
+  };
+
   return (
     <>
       {/* Modal for all variants video verifications */}
@@ -632,7 +699,11 @@ export default function Home() {
             >
               Reset
             </Button>
-
+            {downloadLink && (
+              <a href={downloadLink} download="api_data.xlsx">
+                Download Excel File
+              </a>
+            )}
             {allRecordsVerified.map((eachRecord, index) => (
               <div className="p-2 w-100 bg-light border mt-3" key={index}>
                 <h4 className="p-2 text-capitalize">{`${index + 1} ${
