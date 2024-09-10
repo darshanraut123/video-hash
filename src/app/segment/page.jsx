@@ -5,6 +5,8 @@ import uuid from "uuid-random";
 import QRCode from "qrcode";
 import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
 import { base64StringToBlob } from "blob-util";
+import fft from "fft-js";
+
 const ffmpeg = createFFmpeg({
   corePath: "https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js",
   log: true,
