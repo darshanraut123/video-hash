@@ -17,6 +17,8 @@
     "@nextui-org/spinner": "^2.0.33",
     "@nextui-org/system": "^2.2.5",
     "@nextui-org/theme": "^2.2.9",
+    "@react-navigation/native": "^6.1.18",
+    "@react-navigation/native-stack": "^6.11.0",
     "blob-util": "^2.0.2",
     "bootstrap": "^5.3.3",
     "chromaprint-wasm": "^0.1.1",
