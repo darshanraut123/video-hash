@@ -58,11 +58,10 @@ export default async function handler(req, res) {
         res.status(401).json({ message: "User not found please register" });
       } else {
         const token = jwt.sign({ userId: user._id }, JWT_SECRET);
+        user.token = token;
         res.status(200).json({
           message: "Authorized!",
-          token,
-          name: user.name,
-          email: user.email,
+          user,
         });
       }
     } catch (error) {
