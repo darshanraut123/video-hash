@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       }
 
       // Query MongoDB to find records matching the email
-      const documentList = await collection
+      let documentList = await collection
         .find({
           "user.email": email,
           publicData: { $exists: true, $ne: null }, // Ensure publicData exists and is not null
@@ -31,6 +31,7 @@ export default async function handler(req, res) {
         .toArray();
 
       if (documentList.length > 0) {
+        documentList = documentList.map((doc) => doc.publicData);
         res
           .status(200)
           .json({ publicDataList: documentList, message: "Found" });
