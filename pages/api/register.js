@@ -63,6 +63,8 @@ export default async function handler(req, res) {
       }
     } catch (error) {
       console.error("Error fetching user:", error);
+    } finally {
+      client.close();
     }
   } else {
     res.status(404).json({ message: "not found" });

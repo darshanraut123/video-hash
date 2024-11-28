@@ -157,10 +157,9 @@ const handler = async (req, res) => {
                 {
                   key: "Facebook VPDQ",
                   value: responseData
-                    ? `${responseData.query_match_percentage.toFixed(2)}%` 
+                    ? `${responseData.query_match_percentage.toFixed(2)}%`
                     : "NA",
                 },
-                
               ],
               hashPercentage: responseData ? responseData : "NA",
             };
@@ -183,7 +182,6 @@ const handler = async (req, res) => {
                 key: " Facebook VPDQ",
                 value: "100%",
               },
-              
             ],
             hashPercentage: 100,
           };
@@ -204,6 +202,8 @@ const handler = async (req, res) => {
     } catch (error) {
       console.error("Error:", error);
       res.status(500).json({ error: "Verification failed." });
+    } finally {
+      client.close();
     }
   }
 };

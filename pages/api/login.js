@@ -40,6 +40,8 @@ export default async function handler(req, res) {
     } catch (e) {
       console.log(e);
       res.status(500).json({ message: "Unauthorized! Error occured" });
+    } finally {
+      client.close();
     }
   }
 
@@ -67,6 +69,8 @@ export default async function handler(req, res) {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Unauthorized! Error occured" });
+    } finally {
+      client.close();
     }
   } else {
     res.status(404).json({ message: "not found" });
