@@ -24,7 +24,7 @@ const VerifierTable = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://localhost:4000/api/verifylogs");
+        const response = await fetch("api/verifylogs");
         const data = await response.json();
         console.log(data.logs);
         data.logs && setLogs(data.logs);
