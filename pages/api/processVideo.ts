@@ -60,7 +60,8 @@ export default async function handler(req, res) {
                   try {
                     console.log(file.originalname, "file");
 
-                    const processedFileBuffer = fs.readFileSync(outputPath);
+                    const processedFileBuffer: any =
+                      fs.readFileSync(outputPath);
                     const storageRef = ref(
                       storage,
                       `${file.originalname}/${parametersDetails[id]}_${file.originalname}`
