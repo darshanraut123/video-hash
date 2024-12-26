@@ -8,6 +8,7 @@ import { storage } from "../config";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 import { Box, Card, Modal } from "@mui/material";
 import * as XLSX from "xlsx";
+import Link from "next/link";
 const index = 0;
 export default function Home() {
   const [files, setFiles] = useState([null, null]); // State to hold two video files
@@ -834,6 +835,7 @@ export default function Home() {
       </Modal>
       <div className="main-container">
         <Toaster />
+        <Link href="/logs">Show verify logs</Link>
         <div>
           <button
             className="file-upload-btn"
