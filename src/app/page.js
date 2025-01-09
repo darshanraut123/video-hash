@@ -836,6 +836,7 @@ export default function Home() {
       <div className="main-container">
         <Toaster />
         <Link href="/logs">Show verify logs</Link>
+        <Link href="/feedback">Show User Feedback</Link>
         <div>
           <button
             className="file-upload-btn"
